@@ -1,6 +1,7 @@
 #include "buffer.h"
 #include "command.h"
 #include "document.h"
+#include "editing.h"
 #include "highlight.h"
 #include "keymap.h"
 #include "text.h"
@@ -56,6 +57,28 @@ static void test_command_registry(void)
     }
     assert(!command_registry_register(&registry, "overflow", "Sem espaço", 0,
                                       test_command_callback));
+}
+
+static void test_editing_controller(void)
+{
+    Editor editor = {0};
+    command_registry_init(&editor.commands);
+    assert(editing_register_commands(&editor));
+    assert(editor.commands.count == 23);
+    assert(command_registry_find(&editor.commands, "save"));
+    const CommandSpec *vertical = command_registry_find(&editor.commands, "cursor-up");
+    assert(vertical && (vertical->flags & COMMAND_FLAG_KEEP_COLUMN));
+
+    assert(buffers_init(&editor.buffers));
+    Document *document = editor_current_document(&editor);
+    assert(document_insert(document, "aç\nline"));
+    assert(command_registry_execute(&editor.commands, "select-all", &editor, false));
+    assert(document->anchor == 0 && document->cursor == document->length);
+    assert(command_registry_execute(&editor.commands, "cursor-left", &editor, false));
+    assert(document->cursor == strlen("aç\nlin"));
+    assert(command_registry_execute(&editor.commands, "undo", &editor, false));
+    assert(strcmp(document->text, "") == 0);
+    buffers_destroy(&editor.buffers);
 }
 
 static void test_document(void)
@@ -312,6 +335,7 @@ static void test_highlighting(void)
 int main(void)
 {
     test_command_registry();
+    test_editing_controller();
     test_document();
     test_undo_redo();
     test_grouped_typing();

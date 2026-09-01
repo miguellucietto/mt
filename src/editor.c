@@ -1,4 +1,5 @@
 #include "editor.h"
+#include "editing.h"
 #include "renderer.h"
 #include "text.h"
 
@@ -150,63 +151,6 @@ size_t editor_position_from_mouse(const Editor *editor, float x, float y)
     if (column < 0)
         column = 0;
     return text_position_at(&buffer->document, line, column);
-}
-
-static void copy_selection(Editor *editor, bool erase)
-{
-    Document *document = editor_current_document(editor);
-    size_t start = document_selection_start(document);
-    size_t end = document_selection_end(document);
-    if (start == end)
-        return;
-    char *text = malloc(end - start + 1);
-    if (!text)
-        return;
-    memcpy(text, document->text + start, end - start);
-    text[end - start] = '\0';
-    SDL_SetClipboardText(text);
-    free(text);
-    if (erase)
-        document_erase(document, start, end);
-}
-
-static void move_vertical(Editor *editor, int delta, bool selecting)
-{
-    Document *document = editor_current_document(editor);
-    int line = text_line_at(document, document->cursor);
-    if (editor->wanted_column < 0)
-        editor->wanted_column = text_column_at(document, document->cursor);
-    int target = line + delta;
-    if (target >= 0)
-        editor_set_cursor(editor,
-                          text_position_at(document, target, editor->wanted_column),
-                          selecting);
-}
-
-static bool word_character(const char *text, size_t position)
-{
-    unsigned char character = (unsigned char)text[position];
-    return character >= 0x80 || isalnum(character) || character == '_';
-}
-
-static size_t previous_word(const Document *document, size_t position)
-{
-    while (position && !word_character(document->text, text_previous_codepoint(
-                                                           document->text, position)))
-        position = text_previous_codepoint(document->text, position);
-    while (position && word_character(document->text, text_previous_codepoint(
-                                                          document->text, position)))
-        position = text_previous_codepoint(document->text, position);
-    return position;
-}
-
-static size_t next_word(const Document *document, size_t position)
-{
-    while (position < document->length && word_character(document->text, position))
-        position = text_next_codepoint(document->text, document->length, position);
-    while (position < document->length && !word_character(document->text, position))
-        position = text_next_codepoint(document->text, document->length, position);
-    return position;
 }
 
 static bool find_text(Editor *editor, size_t start, bool wrap)
@@ -388,93 +332,6 @@ static void request_quit(Editor *editor)
     minibuffer_open(&editor->minibuffer, MINIBUFFER_QUIT_CONFIRM, prompt);
 }
 
-static void command_save(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    Buffer *buffer = editor_current_buffer(editor);
-    if (!buffer->read_only)
-        document_save(&buffer->document, editor->message, sizeof(editor->message));
-}
-
-static void command_select_all(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    Document *document = editor_current_document(editor);
-    document->anchor = 0;
-    document->cursor = document->length;
-}
-
-static void command_copy(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    copy_selection(editor, false);
-}
-
-static void command_cut(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    if (!editor_current_buffer(editor)->read_only)
-        copy_selection(editor, true);
-}
-
-static void command_paste(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    Buffer *buffer = editor_current_buffer(editor);
-    char *text = SDL_GetClipboardText();
-    if (!buffer->read_only && text)
-        document_insert(&buffer->document, text);
-    SDL_free(text);
-}
-
-static void command_undo(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    Buffer *buffer = editor_current_buffer(editor);
-    if (!buffer->read_only)
-        document_undo(&buffer->document);
-}
-
-static void command_redo(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    Buffer *buffer = editor_current_buffer(editor);
-    if (!buffer->read_only)
-        document_redo(&buffer->document);
-}
-
-static void command_backspace(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    Buffer *buffer = editor_current_buffer(editor);
-    Document *document = &buffer->document;
-    if (buffer->read_only)
-        return;
-    if (document_has_selection(document))
-        document_erase(document, document_selection_start(document),
-                       document_selection_end(document));
-    else
-        document_erase(document,
-                       text_previous_codepoint(document->text, document->cursor),
-                       document->cursor);
-}
-
-static void command_delete(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    Buffer *buffer = editor_current_buffer(editor);
-    Document *document = &buffer->document;
-    if (buffer->read_only)
-        return;
-    if (document_has_selection(document))
-        document_erase(document, document_selection_start(document),
-                       document_selection_end(document));
-    else
-        document_erase(
-            document, document->cursor,
-            text_next_codepoint(document->text, document->length, document->cursor));
-}
-
 static void command_newline(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -483,86 +340,6 @@ static void command_newline(Editor *editor, bool selecting)
         open_dired_entry(editor);
     else if (!buffer->read_only)
         document_insert(&buffer->document, "\n");
-}
-
-static void command_tab(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    Buffer *buffer = editor_current_buffer(editor);
-    if (!buffer->read_only)
-        document_insert(&buffer->document, "    ");
-}
-
-static void command_cursor_left(Editor *editor, bool selecting)
-{
-    Document *document = editor_current_document(editor);
-    editor_set_cursor(editor, text_previous_codepoint(document->text, document->cursor),
-                      selecting);
-}
-
-static void command_cursor_right(Editor *editor, bool selecting)
-{
-    Document *document = editor_current_document(editor);
-    editor_set_cursor(
-        editor, text_next_codepoint(document->text, document->length, document->cursor),
-        selecting);
-}
-
-static void command_cursor_up(Editor *editor, bool selecting)
-{
-    move_vertical(editor, -1, selecting);
-}
-
-static void command_cursor_down(Editor *editor, bool selecting)
-{
-    move_vertical(editor, 1, selecting);
-}
-
-static void command_word_left(Editor *editor, bool selecting)
-{
-    Document *document = editor_current_document(editor);
-    editor_set_cursor(editor, previous_word(document, document->cursor), selecting);
-}
-
-static void command_word_right(Editor *editor, bool selecting)
-{
-    Document *document = editor_current_document(editor);
-    editor_set_cursor(editor, next_word(document, document->cursor), selecting);
-}
-
-static void command_line_start(Editor *editor, bool selecting)
-{
-    Document *document = editor_current_document(editor);
-    editor_set_cursor(editor, text_line_start(document, document->cursor), selecting);
-}
-
-static void command_line_end(Editor *editor, bool selecting)
-{
-    Document *document = editor_current_document(editor);
-    editor_set_cursor(editor, text_line_end(document, document->cursor), selecting);
-}
-
-static void command_buffer_start(Editor *editor, bool selecting)
-{
-    editor_set_cursor(editor, 0, selecting);
-}
-
-static void command_buffer_end(Editor *editor, bool selecting)
-{
-    editor_set_cursor(editor, editor_current_document(editor)->length, selecting);
-}
-
-static void command_kill_line(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    Buffer *buffer = editor_current_buffer(editor);
-    Document *document = &buffer->document;
-    if (buffer->read_only)
-        return;
-    size_t end = text_line_end(document, document->cursor);
-    if (end == document->cursor && end < document->length)
-        end++;
-    document_erase(document, document->cursor, end);
 }
 
 static void command_isearch(Editor *editor, bool selecting)
@@ -581,16 +358,6 @@ static void command_query_replace(Editor *editor, bool selecting)
         editor->search_origin = buffer->document.cursor;
         minibuffer_open(&editor->minibuffer, MINIBUFFER_QUERY_FIND, "Query replace: ");
     }
-}
-
-static void command_page_up(Editor *editor, bool selecting)
-{
-    move_vertical(editor, -10, selecting);
-}
-
-static void command_page_down(Editor *editor, bool selecting)
-{
-    move_vertical(editor, 10, selecting);
 }
 
 static void command_execute_command(Editor *editor, bool selecting)
@@ -690,40 +457,15 @@ typedef struct {
 
 static bool register_native_commands(Editor *editor)
 {
+    if (!editing_register_commands(editor))
+        return false;
     static const NativeCommand commands[] = {
-        {"save", "Salva o buffer atual", 0, command_save},
-        {"select-all", "Seleciona todo o buffer", 0, command_select_all},
-        {"copy", "Copia a seleção", 0, command_copy},
-        {"cut", "Recorta a seleção", 0, command_cut},
-        {"paste", "Insere o conteúdo da área de transferência", 0, command_paste},
-        {"undo", "Desfaz a última edição", 0, command_undo},
-        {"redo", "Refaz a última edição desfeita", 0, command_redo},
-        {"backspace", "Apaga antes do cursor", 0, command_backspace},
-        {"delete", "Apaga depois do cursor", 0, command_delete},
         {"newline", "Insere uma nova linha ou abre a entrada do Dired", 0,
          command_newline},
-        {"tab", "Insere indentação", 0, command_tab},
-        {"cursor-left", "Move o cursor para a esquerda", 0, command_cursor_left},
-        {"cursor-right", "Move o cursor para a direita", 0, command_cursor_right},
-        {"cursor-up", "Move o cursor para cima", COMMAND_FLAG_KEEP_COLUMN,
-         command_cursor_up},
-        {"cursor-down", "Move o cursor para baixo", COMMAND_FLAG_KEEP_COLUMN,
-         command_cursor_down},
-        {"word-left", "Move para a palavra anterior", 0, command_word_left},
-        {"word-right", "Move para a próxima palavra", 0, command_word_right},
-        {"line-start", "Move para o início da linha", 0, command_line_start},
-        {"line-end", "Move para o fim da linha", 0, command_line_end},
-        {"buffer-start", "Move para o início do buffer", 0, command_buffer_start},
-        {"buffer-end", "Move para o fim do buffer", 0, command_buffer_end},
-        {"kill-line", "Apaga até o fim da linha", 0, command_kill_line},
         {"isearch", "Inicia busca incremental", COMMAND_FLAG_OPENS_MINIBUFFER,
          command_isearch},
         {"query-replace", "Substitui ocorrências com confirmação",
          COMMAND_FLAG_OPENS_MINIBUFFER, command_query_replace},
-        {"page-up", "Move uma página para cima", COMMAND_FLAG_KEEP_COLUMN,
-         command_page_up},
-        {"page-down", "Move uma página para baixo", COMMAND_FLAG_KEEP_COLUMN,
-         command_page_down},
         {"execute-command", "Executa um comando pelo nome",
          COMMAND_FLAG_OPENS_MINIBUFFER, command_execute_command},
         {"cmd", "Executa um comando do shell", COMMAND_FLAG_OPENS_MINIBUFFER,

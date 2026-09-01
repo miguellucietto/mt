@@ -159,6 +159,7 @@ stabilization and opaque handles are tracked in `ARCHITECTURE.md`.
 - `document`: mutable text storage, selection, undo/redo, and persistence
 - `text`: UTF-8 navigation and text coordinates
 - `editor`: event handling and command coordination
+- `editing`: editing and navigation command implementations
 - `minibuffer`: command and argument input
 - `keymap`: configurable mapping from keys to command names
 - `package`: dynamic package loading with `dlopen`

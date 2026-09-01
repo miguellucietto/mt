@@ -70,7 +70,7 @@ Acceptance criteria:
 
 Suggested branch: `refactor/editor-controller`
 
-- [ ] Extract editing commands into their own module.
+- [x] Extract editing commands into their own module.
 - [ ] Extract search and replacement.
 - [ ] Extract file operations and confirmations.
 - [ ] Extract Dired from the general event loop.

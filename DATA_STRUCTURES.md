@@ -223,10 +223,14 @@ the wrong owner. A2 should extract controllers while keeping `Editor` as the
 lifecycle/composition root. A7 should later move per-view state out of it. This is
 an ownership refactor, not a reason to introduce inheritance-style abstractions.
 
+The A2 editing extraction reviewed these structures and intentionally retained
+them: editing commands operate on stable `Buffer *` and byte offsets, so changing
+buffer or document storage during the controller move would add pointer-lifetime
+risk without improving the new boundary.
+
 ## Review rule for future changes
 
 Every structural change must revisit the affected section above. If the current
 choice remains appropriate, document that it was reviewed and leave it alone. If
 it changes, update the decision, ownership model, complexity expectations, and
 tests in the same branch.
-
