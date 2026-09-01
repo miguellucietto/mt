@@ -1,71 +1,50 @@
 #include "command.h"
-#include <stddef.h>
+
 #include <string.h>
-typedef struct {
-    Command command;
-    const char *name;
-} CommandName;
-static const CommandName COMMANDS[] = {
-    {COMMAND_SAVE, "save"},
-    {COMMAND_SELECT_ALL, "select-all"},
-    {COMMAND_COPY, "copy"},
-    {COMMAND_CUT, "cut"},
-    {COMMAND_PASTE, "paste"},
-    {COMMAND_UNDO, "undo"},
-    {COMMAND_REDO, "redo"},
-    {COMMAND_BACKSPACE, "backspace"},
-    {COMMAND_DELETE, "delete"},
-    {COMMAND_NEWLINE, "newline"},
-    {COMMAND_TAB, "tab"},
-    {COMMAND_CURSOR_LEFT, "cursor-left"},
-    {COMMAND_CURSOR_RIGHT, "cursor-right"},
-    {COMMAND_CURSOR_UP, "cursor-up"},
-    {COMMAND_CURSOR_DOWN, "cursor-down"},
-    {COMMAND_WORD_LEFT, "word-left"},
-    {COMMAND_WORD_RIGHT, "word-right"},
-    {COMMAND_LINE_START, "line-start"},
-    {COMMAND_LINE_END, "line-end"},
-    {COMMAND_BUFFER_START, "buffer-start"},
-    {COMMAND_BUFFER_END, "buffer-end"},
-    {COMMAND_KILL_LINE, "kill-line"},
-    {COMMAND_ISEARCH, "isearch"},
-    {COMMAND_QUERY_REPLACE, "query-replace"},
-    {COMMAND_PAGE_UP, "page-up"},
-    {COMMAND_PAGE_DOWN, "page-down"},
-    {COMMAND_EXECUTE_COMMAND, "execute-command"},
-    {COMMAND_SHELL, "cmd"},
-    {COMMAND_FIND_FILE, "find-file"},
-    {COMMAND_DIRED, "dired"},
-    {COMMAND_NEXT_BUFFER, "next-buffer"},
-    {COMMAND_DIRED_OPEN, "dired-open"},
-    {COMMAND_DIRED_REFRESH, "dired-refresh"},
-    {COMMAND_DIRED_CREATE_FILE, "dired-create-file"},
-    {COMMAND_DIRED_CREATE_DIRECTORY, "dired-create-directory"},
-    {COMMAND_DIRED_RENAME, "dired-rename"},
-    {COMMAND_DIRED_DELETE, "dired-delete"},
-    {COMMAND_LIST_COMMANDS, "list-commands"},
-    {COMMAND_QUIT, "quit"}};
-const char *command_name(Command command)
+
+void command_registry_init(CommandRegistry *registry)
 {
-    for (size_t i = 0; i < sizeof(COMMANDS) / sizeof(*COMMANDS); i++)
-        if (COMMANDS[i].command == command)
-            return COMMANDS[i].name;
-    return "none";
-}
-Command command_from_name(const char *name)
-{
-    for (size_t i = 0; i < sizeof(COMMANDS) / sizeof(*COMMANDS); i++)
-        if (strcmp(COMMANDS[i].name, name) == 0)
-            return COMMANDS[i].command;
-    return COMMAND_NONE;
+    registry->count = 0;
 }
 
-size_t command_count(void)
+const CommandSpec *command_registry_find(const CommandRegistry *registry,
+                                         const char *name)
 {
-    return sizeof(COMMANDS) / sizeof(*COMMANDS);
+    if (!name)
+        return NULL;
+    for (size_t i = 0; i < registry->count; i++)
+        if (strcmp(registry->commands[i].name, name) == 0)
+            return &registry->commands[i];
+    return NULL;
 }
 
-const char *command_name_at(size_t index)
+bool command_registry_register(CommandRegistry *registry, const char *name,
+                               const char *description, unsigned int flags,
+                               CommandFunction function)
 {
-    return index < command_count() ? COMMANDS[index].name : NULL;
+    if (!name || !*name || strlen(name) >= MT_COMMAND_NAME_SIZE || !description ||
+        strlen(description) >= MT_COMMAND_DESCRIPTION_SIZE || !function ||
+        registry->count >= MT_MAX_COMMANDS || command_registry_find(registry, name))
+        return false;
+    CommandSpec *command = &registry->commands[registry->count++];
+    memcpy(command->name, name, strlen(name) + 1);
+    memcpy(command->description, description, strlen(description) + 1);
+    command->function = function;
+    command->flags = flags;
+    return true;
+}
+
+const CommandSpec *command_registry_at(const CommandRegistry *registry, size_t index)
+{
+    return index < registry->count ? &registry->commands[index] : NULL;
+}
+
+bool command_registry_execute(const CommandRegistry *registry, const char *name,
+                              struct Editor *editor, bool selecting)
+{
+    const CommandSpec *command = command_registry_find(registry, name);
+    if (!command)
+        return false;
+    command->function(editor, selecting);
+    return true;
 }

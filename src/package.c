@@ -18,31 +18,6 @@ void packages_destroy(PackageManager *manager)
     memset(manager, 0, sizeof(*manager));
 }
 
-bool packages_register(PackageManager *manager, const char *name,
-                       PackageCommand function)
-{
-    for (size_t i = 0; i < manager->command_count; i++) {
-        if (strcmp(manager->commands[i].name, name) == 0) {
-            manager->commands[i].function = function;
-            return true;
-        }
-    }
-    if (manager->command_count >= MT_MAX_COMMANDS || !function)
-        return false;
-    RegisteredCommand *command = &manager->commands[manager->command_count++];
-    snprintf(command->name, sizeof(command->name), "%s", name);
-    command->function = function;
-    return true;
-}
-
-PackageCommand packages_find(const PackageManager *manager, const char *name)
-{
-    for (size_t i = 0; i < manager->command_count; i++)
-        if (strcmp(manager->commands[i].name, name) == 0)
-            return manager->commands[i].function;
-    return NULL;
-}
-
 int packages_load_directory(PackageManager *manager, struct Editor *editor,
                             const char *path, char *message, size_t message_size)
 {
@@ -65,7 +40,9 @@ int packages_load_directory(PackageManager *manager, struct Editor *editor,
         void *symbol = dlsym(handle, "mt_package_init");
         memcpy(&initialize, &symbol, sizeof(initialize));
         MtAPI api = {.editor = editor, .register_command = editor_register_command};
+        size_t command_count = editor->commands.count;
         if (!initialize || !initialize(&api)) {
+            editor->commands.count = command_count;
             dlclose(handle);
             continue;
         }

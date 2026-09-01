@@ -24,6 +24,7 @@ typedef struct Editor {
     Config config;
     Minibuffer minibuffer;
     PackageManager packages;
+    CommandRegistry commands;
     int width, height, line_height, char_width, scroll_line, wanted_column;
     bool running, dragging;
     bool suppress_text_until_keyup;
@@ -36,9 +37,9 @@ typedef struct Editor {
 bool editor_init(Editor *editor, const char *path);
 void editor_destroy(Editor *editor);
 void editor_run(Editor *editor);
-void editor_execute(Editor *editor, Command command, bool selecting);
 void editor_execute_named(Editor *editor, const char *name, bool selecting);
-bool editor_register_command(Editor *editor, const char *name, PackageCommand function);
+bool editor_register_command(Editor *editor, const char *name, const char *description,
+                             unsigned int flags, CommandFunction function);
 Buffer *editor_current_buffer(Editor *editor);
 Document *editor_current_document(Editor *editor);
 void editor_set_cursor(Editor *editor, size_t position, bool selecting);

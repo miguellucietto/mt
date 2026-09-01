@@ -181,7 +181,7 @@ não recria recursos gráficos desnecessariamente a cada frame.
 - O highlighter de C é deliberadamente simples e não mantém estado entre linhas.
 - `cmd` usa `popen` de forma síncrona.
 - O estado de cursor e rolagem pertence ao editor, não a cada visualização.
-- O registro de comandos nativos ainda usa um enum fechado internamente.
+- O registro unificado de comandos ainda usa capacidade máxima fixa.
 - A API de packages expõe estruturas internas e ainda não possui versão de ABI.
 - Buffers são armazenados em um array de tamanho máximo fixo.
 - Mensagens usam um único campo curto em vez de um buffer de log.

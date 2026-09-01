@@ -1,50 +1,41 @@
 #ifndef MT_COMMAND_H
 #define MT_COMMAND_H
+#include <stdbool.h>
 #include <stddef.h>
+
+struct Editor;
+
+#define MT_MAX_COMMANDS 128
+#define MT_COMMAND_NAME_SIZE 64
+#define MT_COMMAND_DESCRIPTION_SIZE 160
+
+typedef void (*CommandFunction)(struct Editor *editor, bool selecting);
+
 typedef enum {
-    COMMAND_NONE,
-    COMMAND_SAVE,
-    COMMAND_SELECT_ALL,
-    COMMAND_COPY,
-    COMMAND_CUT,
-    COMMAND_PASTE,
-    COMMAND_UNDO,
-    COMMAND_REDO,
-    COMMAND_BACKSPACE,
-    COMMAND_DELETE,
-    COMMAND_NEWLINE,
-    COMMAND_TAB,
-    COMMAND_CURSOR_LEFT,
-    COMMAND_CURSOR_RIGHT,
-    COMMAND_CURSOR_UP,
-    COMMAND_CURSOR_DOWN,
-    COMMAND_WORD_LEFT,
-    COMMAND_WORD_RIGHT,
-    COMMAND_LINE_START,
-    COMMAND_LINE_END,
-    COMMAND_BUFFER_START,
-    COMMAND_BUFFER_END,
-    COMMAND_KILL_LINE,
-    COMMAND_ISEARCH,
-    COMMAND_QUERY_REPLACE,
-    COMMAND_PAGE_UP,
-    COMMAND_PAGE_DOWN,
-    COMMAND_EXECUTE_COMMAND,
-    COMMAND_SHELL,
-    COMMAND_FIND_FILE,
-    COMMAND_DIRED,
-    COMMAND_NEXT_BUFFER,
-    COMMAND_DIRED_OPEN,
-    COMMAND_DIRED_REFRESH,
-    COMMAND_DIRED_CREATE_FILE,
-    COMMAND_DIRED_CREATE_DIRECTORY,
-    COMMAND_DIRED_RENAME,
-    COMMAND_DIRED_DELETE,
-    COMMAND_LIST_COMMANDS,
-    COMMAND_QUIT
-} Command;
-const char *command_name(Command command);
-Command command_from_name(const char *name);
-size_t command_count(void);
-const char *command_name_at(size_t index);
+    COMMAND_FLAG_NONE = 0,
+    COMMAND_FLAG_OPENS_MINIBUFFER = 1 << 0,
+    COMMAND_FLAG_KEEP_COLUMN = 1 << 1
+} CommandFlags;
+
+typedef struct {
+    char name[MT_COMMAND_NAME_SIZE];
+    char description[MT_COMMAND_DESCRIPTION_SIZE];
+    CommandFunction function;
+    unsigned int flags;
+} CommandSpec;
+
+typedef struct {
+    CommandSpec commands[MT_MAX_COMMANDS];
+    size_t count;
+} CommandRegistry;
+
+void command_registry_init(CommandRegistry *registry);
+bool command_registry_register(CommandRegistry *registry, const char *name,
+                               const char *description, unsigned int flags,
+                               CommandFunction function);
+const CommandSpec *command_registry_find(const CommandRegistry *registry,
+                                         const char *name);
+const CommandSpec *command_registry_at(const CommandRegistry *registry, size_t index);
+bool command_registry_execute(const CommandRegistry *registry, const char *name,
+                              struct Editor *editor, bool selecting);
 #endif

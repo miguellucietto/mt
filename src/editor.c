@@ -11,6 +11,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+static bool register_native_commands(Editor *editor);
+
 static const char *find_font(void)
 {
     const char *override = getenv("MT_FONT");
@@ -42,9 +44,11 @@ Document *editor_current_document(Editor *editor)
     return buffer ? &buffer->document : NULL;
 }
 
-bool editor_register_command(Editor *editor, const char *name, PackageCommand function)
+bool editor_register_command(Editor *editor, const char *name, const char *description,
+                             unsigned int flags, CommandFunction function)
 {
-    return packages_register(&editor->packages, name, function);
+    return command_registry_register(&editor->commands, name, description, flags,
+                                     function);
 }
 
 bool editor_init(Editor *editor, const char *path)
@@ -55,6 +59,9 @@ bool editor_init(Editor *editor, const char *path)
     editor->wanted_column = -1;
     editor->running = true;
     packages_init(&editor->packages);
+    command_registry_init(&editor->commands);
+    if (!register_native_commands(editor))
+        return false;
     if (!buffers_init(&editor->buffers))
         return false;
     config_init(&editor->config, editor->message, sizeof(editor->message));
@@ -357,17 +364,11 @@ static void show_commands(Editor *editor)
     char contents[16384];
     size_t used = 0;
     used += (size_t)snprintf(contents + used, sizeof(contents) - used,
-                             "Comandos do mt\n============\n\nNativos:\n");
-    for (size_t i = 0; i < command_count() && used < sizeof(contents); i++)
-        used += (size_t)snprintf(contents + used, sizeof(contents) - used, "  %s\n",
-                                 command_name_at(i));
-    if (editor->packages.command_count && used < sizeof(contents)) {
-        used +=
-            (size_t)snprintf(contents + used, sizeof(contents) - used, "\nPackages:\n");
-        for (size_t i = 0;
-             i < editor->packages.command_count && used < sizeof(contents); i++)
-            used += (size_t)snprintf(contents + used, sizeof(contents) - used, "  %s\n",
-                                     editor->packages.commands[i].name);
+                             "Comandos do mt\n============\n\n");
+    for (size_t i = 0; i < editor->commands.count && used < sizeof(contents); i++) {
+        const CommandSpec *command = command_registry_at(&editor->commands, i);
+        used += (size_t)snprintf(contents + used, sizeof(contents) - used,
+                                 "  %-28s %s\n", command->name, command->description);
     }
     buffers_open_text(&editor->buffers, "*commands*", BUFFER_MESSAGES, contents, true);
     editor->scroll_line = 0;
@@ -387,189 +388,370 @@ static void request_quit(Editor *editor)
     minibuffer_open(&editor->minibuffer, MINIBUFFER_QUIT_CONFIRM, prompt);
 }
 
-void editor_execute(Editor *editor, Command command, bool selecting)
+static void command_save(Editor *editor, bool selecting)
 {
+    (void)selecting;
+    Buffer *buffer = editor_current_buffer(editor);
+    if (!buffer->read_only)
+        document_save(&buffer->document, editor->message, sizeof(editor->message));
+}
+
+static void command_select_all(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    Document *document = editor_current_document(editor);
+    document->anchor = 0;
+    document->cursor = document->length;
+}
+
+static void command_copy(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    copy_selection(editor, false);
+}
+
+static void command_cut(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    if (!editor_current_buffer(editor)->read_only)
+        copy_selection(editor, true);
+}
+
+static void command_paste(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    Buffer *buffer = editor_current_buffer(editor);
+    char *text = SDL_GetClipboardText();
+    if (!buffer->read_only && text)
+        document_insert(&buffer->document, text);
+    SDL_free(text);
+}
+
+static void command_undo(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    Buffer *buffer = editor_current_buffer(editor);
+    if (!buffer->read_only)
+        document_undo(&buffer->document);
+}
+
+static void command_redo(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    Buffer *buffer = editor_current_buffer(editor);
+    if (!buffer->read_only)
+        document_redo(&buffer->document);
+}
+
+static void command_backspace(Editor *editor, bool selecting)
+{
+    (void)selecting;
     Buffer *buffer = editor_current_buffer(editor);
     Document *document = &buffer->document;
-    bool writable = !buffer->read_only;
-    document_break_undo_group(document);
-    switch (command) {
-    case COMMAND_SAVE:
-        if (writable)
-            document_save(document, editor->message, sizeof(editor->message));
-        break;
-    case COMMAND_SELECT_ALL:
-        document->anchor = 0;
-        document->cursor = document->length;
-        break;
-    case COMMAND_COPY:
-        copy_selection(editor, false);
-        break;
-    case COMMAND_CUT:
-        if (writable)
-            copy_selection(editor, true);
-        break;
-    case COMMAND_PASTE: {
-        char *text = SDL_GetClipboardText();
-        if (writable && text)
-            document_insert(document, text);
-        SDL_free(text);
-        break;
-    }
-    case COMMAND_UNDO:
-        if (writable)
-            document_undo(document);
-        break;
-    case COMMAND_REDO:
-        if (writable)
-            document_redo(document);
-        break;
-    case COMMAND_BACKSPACE:
-        if (writable && document_has_selection(document))
-            document_erase(document, document_selection_start(document),
-                           document_selection_end(document));
-        else if (writable)
-            document_erase(document,
-                           text_previous_codepoint(document->text, document->cursor),
-                           document->cursor);
-        break;
-    case COMMAND_DELETE:
-        if (writable && document_has_selection(document))
-            document_erase(document, document_selection_start(document),
-                           document_selection_end(document));
-        else if (writable)
-            document_erase(document, document->cursor,
-                           text_next_codepoint(document->text, document->length,
-                                               document->cursor));
-        break;
-    case COMMAND_NEWLINE:
-        if (buffer->type == BUFFER_DIRECTORY)
-            open_dired_entry(editor);
-        else if (writable)
-            document_insert(document, "\n");
-        break;
-    case COMMAND_TAB:
-        if (writable)
-            document_insert(document, "    ");
-        break;
-    case COMMAND_CURSOR_LEFT:
-        editor_set_cursor(editor,
-                          text_previous_codepoint(document->text, document->cursor),
-                          selecting);
-        break;
-    case COMMAND_CURSOR_RIGHT:
-        editor_set_cursor(
-            editor,
-            text_next_codepoint(document->text, document->length, document->cursor),
-            selecting);
-        break;
-    case COMMAND_CURSOR_UP:
-        move_vertical(editor, -1, selecting);
+    if (buffer->read_only)
         return;
-    case COMMAND_CURSOR_DOWN:
-        move_vertical(editor, 1, selecting);
+    if (document_has_selection(document))
+        document_erase(document, document_selection_start(document),
+                       document_selection_end(document));
+    else
+        document_erase(document,
+                       text_previous_codepoint(document->text, document->cursor),
+                       document->cursor);
+}
+
+static void command_delete(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    Buffer *buffer = editor_current_buffer(editor);
+    Document *document = &buffer->document;
+    if (buffer->read_only)
         return;
-    case COMMAND_WORD_LEFT:
-        editor_set_cursor(editor, previous_word(document, document->cursor), selecting);
-        break;
-    case COMMAND_WORD_RIGHT:
-        editor_set_cursor(editor, next_word(document, document->cursor), selecting);
-        break;
-    case COMMAND_LINE_START:
-        editor_set_cursor(editor, text_line_start(document, document->cursor),
-                          selecting);
-        break;
-    case COMMAND_LINE_END:
-        editor_set_cursor(editor, text_line_end(document, document->cursor), selecting);
-        break;
-    case COMMAND_BUFFER_START:
-        editor_set_cursor(editor, 0, selecting);
-        break;
-    case COMMAND_BUFFER_END:
-        editor_set_cursor(editor, document->length, selecting);
-        break;
-    case COMMAND_KILL_LINE:
-        if (writable) {
-            size_t end = text_line_end(document, document->cursor);
-            if (end == document->cursor && end < document->length)
-                end++;
-            document_erase(document, document->cursor, end);
-        }
-        break;
-    case COMMAND_ISEARCH:
-        editor->search_origin = document->cursor;
-        editor->search_text[0] = '\0';
-        minibuffer_open(&editor->minibuffer, MINIBUFFER_ISEARCH, "I-search: ");
-        break;
-    case COMMAND_QUERY_REPLACE:
-        if (writable) {
-            editor->search_origin = document->cursor;
-            minibuffer_open(&editor->minibuffer, MINIBUFFER_QUERY_FIND,
-                            "Query replace: ");
-        }
-        break;
-    case COMMAND_PAGE_UP:
-        move_vertical(editor, -10, selecting);
-        return;
-    case COMMAND_PAGE_DOWN:
-        move_vertical(editor, 10, selecting);
-        return;
-    case COMMAND_EXECUTE_COMMAND:
-        minibuffer_open(&editor->minibuffer, MINIBUFFER_COMMAND, "M-x ");
-        break;
-    case COMMAND_SHELL:
-        minibuffer_open(&editor->minibuffer, MINIBUFFER_SHELL, "Shell command: ");
-        break;
-    case COMMAND_FIND_FILE:
-        minibuffer_open(&editor->minibuffer, MINIBUFFER_FIND_FILE, "Find file: ");
-        break;
-    case COMMAND_DIRED:
-        minibuffer_open(&editor->minibuffer, MINIBUFFER_DIRED, "Dired: ");
-        break;
-    case COMMAND_NEXT_BUFFER:
-        buffers_next(&editor->buffers);
-        editor->scroll_line = 0;
-        break;
-    case COMMAND_DIRED_OPEN:
+    if (document_has_selection(document))
+        document_erase(document, document_selection_start(document),
+                       document_selection_end(document));
+    else
+        document_erase(
+            document, document->cursor,
+            text_next_codepoint(document->text, document->length, document->cursor));
+}
+
+static void command_newline(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    Buffer *buffer = editor_current_buffer(editor);
+    if (buffer->type == BUFFER_DIRECTORY)
         open_dired_entry(editor);
-        break;
-    case COMMAND_DIRED_REFRESH:
-        if (buffer->type == BUFFER_DIRECTORY)
-            buffer_refresh_directory(buffer, buffer->directory, editor->message,
-                                     sizeof(editor->message));
-        break;
-    case COMMAND_DIRED_CREATE_FILE:
-        if (buffer->type == BUFFER_DIRECTORY)
-            minibuffer_open(&editor->minibuffer, MINIBUFFER_CREATE_FILE,
-                            "Create file: ");
-        break;
-    case COMMAND_DIRED_CREATE_DIRECTORY:
-        if (buffer->type == BUFFER_DIRECTORY)
-            minibuffer_open(&editor->minibuffer, MINIBUFFER_CREATE_DIRECTORY,
-                            "Create directory: ");
-        break;
-    case COMMAND_DIRED_RENAME:
-        if (selected_dired_path(editor, editor->pending_path,
-                                sizeof(editor->pending_path)))
-            minibuffer_open(&editor->minibuffer, MINIBUFFER_RENAME, "Rename to: ");
-        break;
-    case COMMAND_DIRED_DELETE:
-        if (selected_dired_path(editor, editor->pending_path,
-                                sizeof(editor->pending_path)))
-            minibuffer_open(&editor->minibuffer, MINIBUFFER_DELETE_CONFIRM,
-                            "Delete? type yes: ");
-        break;
-    case COMMAND_LIST_COMMANDS:
-        show_commands(editor);
-        break;
-    case COMMAND_QUIT:
-        request_quit(editor);
-        break;
-    case COMMAND_NONE:
+    else if (!buffer->read_only)
+        document_insert(&buffer->document, "\n");
+}
+
+static void command_tab(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    Buffer *buffer = editor_current_buffer(editor);
+    if (!buffer->read_only)
+        document_insert(&buffer->document, "    ");
+}
+
+static void command_cursor_left(Editor *editor, bool selecting)
+{
+    Document *document = editor_current_document(editor);
+    editor_set_cursor(editor, text_previous_codepoint(document->text, document->cursor),
+                      selecting);
+}
+
+static void command_cursor_right(Editor *editor, bool selecting)
+{
+    Document *document = editor_current_document(editor);
+    editor_set_cursor(
+        editor, text_next_codepoint(document->text, document->length, document->cursor),
+        selecting);
+}
+
+static void command_cursor_up(Editor *editor, bool selecting)
+{
+    move_vertical(editor, -1, selecting);
+}
+
+static void command_cursor_down(Editor *editor, bool selecting)
+{
+    move_vertical(editor, 1, selecting);
+}
+
+static void command_word_left(Editor *editor, bool selecting)
+{
+    Document *document = editor_current_document(editor);
+    editor_set_cursor(editor, previous_word(document, document->cursor), selecting);
+}
+
+static void command_word_right(Editor *editor, bool selecting)
+{
+    Document *document = editor_current_document(editor);
+    editor_set_cursor(editor, next_word(document, document->cursor), selecting);
+}
+
+static void command_line_start(Editor *editor, bool selecting)
+{
+    Document *document = editor_current_document(editor);
+    editor_set_cursor(editor, text_line_start(document, document->cursor), selecting);
+}
+
+static void command_line_end(Editor *editor, bool selecting)
+{
+    Document *document = editor_current_document(editor);
+    editor_set_cursor(editor, text_line_end(document, document->cursor), selecting);
+}
+
+static void command_buffer_start(Editor *editor, bool selecting)
+{
+    editor_set_cursor(editor, 0, selecting);
+}
+
+static void command_buffer_end(Editor *editor, bool selecting)
+{
+    editor_set_cursor(editor, editor_current_document(editor)->length, selecting);
+}
+
+static void command_kill_line(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    Buffer *buffer = editor_current_buffer(editor);
+    Document *document = &buffer->document;
+    if (buffer->read_only)
         return;
+    size_t end = text_line_end(document, document->cursor);
+    if (end == document->cursor && end < document->length)
+        end++;
+    document_erase(document, document->cursor, end);
+}
+
+static void command_isearch(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    editor->search_origin = editor_current_document(editor)->cursor;
+    editor->search_text[0] = '\0';
+    minibuffer_open(&editor->minibuffer, MINIBUFFER_ISEARCH, "I-search: ");
+}
+
+static void command_query_replace(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    Buffer *buffer = editor_current_buffer(editor);
+    if (!buffer->read_only) {
+        editor->search_origin = buffer->document.cursor;
+        minibuffer_open(&editor->minibuffer, MINIBUFFER_QUERY_FIND, "Query replace: ");
     }
-    editor->wanted_column = -1;
-    editor_ensure_cursor_visible(editor);
+}
+
+static void command_page_up(Editor *editor, bool selecting)
+{
+    move_vertical(editor, -10, selecting);
+}
+
+static void command_page_down(Editor *editor, bool selecting)
+{
+    move_vertical(editor, 10, selecting);
+}
+
+static void command_execute_command(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    minibuffer_open(&editor->minibuffer, MINIBUFFER_COMMAND, "M-x ");
+}
+
+static void command_shell(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    minibuffer_open(&editor->minibuffer, MINIBUFFER_SHELL, "Shell command: ");
+}
+
+static void command_find_file(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    minibuffer_open(&editor->minibuffer, MINIBUFFER_FIND_FILE, "Find file: ");
+}
+
+static void command_dired(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    minibuffer_open(&editor->minibuffer, MINIBUFFER_DIRED, "Dired: ");
+}
+
+static void command_next_buffer(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    buffers_next(&editor->buffers);
+    editor->scroll_line = 0;
+}
+
+static void command_dired_open(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    open_dired_entry(editor);
+}
+
+static void command_dired_refresh(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    Buffer *buffer = editor_current_buffer(editor);
+    if (buffer->type == BUFFER_DIRECTORY)
+        buffer_refresh_directory(buffer, buffer->directory, editor->message,
+                                 sizeof(editor->message));
+}
+
+static void command_dired_create_file(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    if (editor_current_buffer(editor)->type == BUFFER_DIRECTORY)
+        minibuffer_open(&editor->minibuffer, MINIBUFFER_CREATE_FILE, "Create file: ");
+}
+
+static void command_dired_create_directory(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    if (editor_current_buffer(editor)->type == BUFFER_DIRECTORY)
+        minibuffer_open(&editor->minibuffer, MINIBUFFER_CREATE_DIRECTORY,
+                        "Create directory: ");
+}
+
+static void command_dired_rename(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    if (selected_dired_path(editor, editor->pending_path, sizeof(editor->pending_path)))
+        minibuffer_open(&editor->minibuffer, MINIBUFFER_RENAME, "Rename to: ");
+}
+
+static void command_dired_delete(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    if (selected_dired_path(editor, editor->pending_path, sizeof(editor->pending_path)))
+        minibuffer_open(&editor->minibuffer, MINIBUFFER_DELETE_CONFIRM,
+                        "Delete? type yes: ");
+}
+
+static void command_list_commands(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    show_commands(editor);
+}
+
+static void command_quit(Editor *editor, bool selecting)
+{
+    (void)selecting;
+    request_quit(editor);
+}
+
+typedef struct {
+    const char *name;
+    const char *description;
+    unsigned int flags;
+    CommandFunction function;
+} NativeCommand;
+
+static bool register_native_commands(Editor *editor)
+{
+    static const NativeCommand commands[] = {
+        {"save", "Salva o buffer atual", 0, command_save},
+        {"select-all", "Seleciona todo o buffer", 0, command_select_all},
+        {"copy", "Copia a seleção", 0, command_copy},
+        {"cut", "Recorta a seleção", 0, command_cut},
+        {"paste", "Insere o conteúdo da área de transferência", 0, command_paste},
+        {"undo", "Desfaz a última edição", 0, command_undo},
+        {"redo", "Refaz a última edição desfeita", 0, command_redo},
+        {"backspace", "Apaga antes do cursor", 0, command_backspace},
+        {"delete", "Apaga depois do cursor", 0, command_delete},
+        {"newline", "Insere uma nova linha ou abre a entrada do Dired", 0,
+         command_newline},
+        {"tab", "Insere indentação", 0, command_tab},
+        {"cursor-left", "Move o cursor para a esquerda", 0, command_cursor_left},
+        {"cursor-right", "Move o cursor para a direita", 0, command_cursor_right},
+        {"cursor-up", "Move o cursor para cima", COMMAND_FLAG_KEEP_COLUMN,
+         command_cursor_up},
+        {"cursor-down", "Move o cursor para baixo", COMMAND_FLAG_KEEP_COLUMN,
+         command_cursor_down},
+        {"word-left", "Move para a palavra anterior", 0, command_word_left},
+        {"word-right", "Move para a próxima palavra", 0, command_word_right},
+        {"line-start", "Move para o início da linha", 0, command_line_start},
+        {"line-end", "Move para o fim da linha", 0, command_line_end},
+        {"buffer-start", "Move para o início do buffer", 0, command_buffer_start},
+        {"buffer-end", "Move para o fim do buffer", 0, command_buffer_end},
+        {"kill-line", "Apaga até o fim da linha", 0, command_kill_line},
+        {"isearch", "Inicia busca incremental", COMMAND_FLAG_OPENS_MINIBUFFER,
+         command_isearch},
+        {"query-replace", "Substitui ocorrências com confirmação",
+         COMMAND_FLAG_OPENS_MINIBUFFER, command_query_replace},
+        {"page-up", "Move uma página para cima", COMMAND_FLAG_KEEP_COLUMN,
+         command_page_up},
+        {"page-down", "Move uma página para baixo", COMMAND_FLAG_KEEP_COLUMN,
+         command_page_down},
+        {"execute-command", "Executa um comando pelo nome",
+         COMMAND_FLAG_OPENS_MINIBUFFER, command_execute_command},
+        {"cmd", "Executa um comando do shell", COMMAND_FLAG_OPENS_MINIBUFFER,
+         command_shell},
+        {"find-file", "Abre um arquivo", COMMAND_FLAG_OPENS_MINIBUFFER,
+         command_find_file},
+        {"dired", "Abre um diretório", COMMAND_FLAG_OPENS_MINIBUFFER, command_dired},
+        {"next-buffer", "Alterna para o próximo buffer", 0, command_next_buffer},
+        {"dired-open", "Abre a entrada selecionada no Dired", 0, command_dired_open},
+        {"dired-refresh", "Atualiza a listagem do Dired", 0, command_dired_refresh},
+        {"dired-create-file", "Cria um arquivo pelo Dired",
+         COMMAND_FLAG_OPENS_MINIBUFFER, command_dired_create_file},
+        {"dired-create-directory", "Cria um diretório pelo Dired",
+         COMMAND_FLAG_OPENS_MINIBUFFER, command_dired_create_directory},
+        {"dired-rename", "Renomeia uma entrada do Dired", COMMAND_FLAG_OPENS_MINIBUFFER,
+         command_dired_rename},
+        {"dired-delete", "Exclui uma entrada do Dired", COMMAND_FLAG_OPENS_MINIBUFFER,
+         command_dired_delete},
+        {"list-commands", "Lista todos os comandos registrados", 0,
+         command_list_commands},
+        {"quit", "Encerra o editor", 0, command_quit},
+    };
+    for (size_t i = 0; i < SDL_arraysize(commands); i++)
+        if (!command_registry_register(&editor->commands, commands[i].name,
+                                       commands[i].description, commands[i].flags,
+                                       commands[i].function))
+            return false;
+    return true;
 }
 
 void editor_execute_named(Editor *editor, const char *name, bool selecting)
@@ -578,17 +760,20 @@ void editor_execute_named(Editor *editor, const char *name, bool selecting)
         show_commands(editor);
         return;
     }
-    Command command = command_from_name(name);
-    if (command != COMMAND_NONE) {
-        editor_execute(editor, command, selecting);
-        return;
-    }
-    PackageCommand package_command = packages_find(&editor->packages, name);
-    if (package_command)
-        package_command(editor, selecting);
-    else
+    const CommandSpec *command = command_registry_find(&editor->commands, name);
+    if (!command) {
         snprintf(editor->message, sizeof(editor->message), "Comando desconhecido: %s",
                  name);
+        return;
+    }
+    Document *document = editor_current_document(editor);
+    if (document)
+        document_break_undo_group(document);
+    if (!command_registry_execute(&editor->commands, name, editor, selecting))
+        return;
+    if (!(command->flags & COMMAND_FLAG_KEEP_COLUMN))
+        editor->wanted_column = -1;
+    editor_ensure_cursor_visible(editor);
 }
 
 static void submit_minibuffer(Editor *editor)
@@ -770,19 +955,13 @@ static void handle_event(Editor *editor, const SDL_Event *event)
         editor_ensure_cursor_visible(editor);
     } else if (event->type == SDL_EVENT_KEY_DOWN) {
         if (buffer->type == BUFFER_DIRECTORY && event->key.key == SDLK_G)
-            editor_execute(editor, COMMAND_DIRED_REFRESH, false);
+            editor_execute_named(editor, "dired-refresh", false);
         else {
             const char *command = keymap_lookup(&editor->keymap, &event->key);
             if (command) {
-                bool opens_minibuffer =
-                    strcmp(command, "execute-command") == 0 ||
-                    strcmp(command, "cmd") == 0 || strcmp(command, "find-file") == 0 ||
-                    strcmp(command, "dired") == 0 || strcmp(command, "isearch") == 0 ||
-                    strcmp(command, "query-replace") == 0 ||
-                    strncmp(command, "dired-create-", 13) == 0 ||
-                    strcmp(command, "dired-rename") == 0 ||
-                    strcmp(command, "dired-delete") == 0;
-                if (opens_minibuffer)
+                const CommandSpec *spec =
+                    command_registry_find(&editor->commands, command);
+                if (spec && (spec->flags & COMMAND_FLAG_OPENS_MINIBUFFER))
                     editor->suppress_text_until_keyup = true;
                 editor_execute_named(editor, command,
                                      (event->key.mod & SDL_KMOD_SHIFT) != 0);

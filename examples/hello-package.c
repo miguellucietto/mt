@@ -13,5 +13,7 @@ static void hello(Editor *editor, bool selecting)
 
 bool mt_package_init(MtAPI *api)
 {
-    return api->register_command(api->editor, "hello", hello);
+    return api->register_command(api->editor, "hello",
+                                 "Abre um buffer com uma saudação do package",
+                                 COMMAND_FLAG_NONE, hello);
 }

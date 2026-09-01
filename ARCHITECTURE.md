@@ -36,7 +36,7 @@ acoplamento.
 ### Limitações confirmadas
 
 - `editor.c` concentra eventos, edição, busca, Dired, shell e coordenação da UI.
-- Comandos nativos usam enum e `switch`; comandos de packages usam outro registro.
+- O registro de comandos já é unificado, mas sua capacidade ainda é fixa.
 - Packages recebem `Editor *` e dependem das estruturas internas do programa.
 - Não existe uma interface formal de major mode.
 - Cores, métricas e quase toda a configuração de fonte são constantes compiladas.
@@ -52,13 +52,13 @@ acoplamento.
 
 Branch sugerida: `refactor/command-registry`
 
-- [ ] Definir `CommandSpec` com nome, função, descrição e flags.
-- [ ] Implementar um único `CommandRegistry` para comandos nativos e de packages.
-- [ ] Substituir o enum fechado de comandos por consulta ao registro.
-- [ ] Migrar todos os comandos nativos sem alterar seus nomes ou atalhos.
-- [ ] Fazer `M-x`, keymap e packages consultarem o mesmo registro.
-- [ ] Rejeitar nomes vazios, duplicados ou maiores que o limite documentado.
-- [ ] Testar registro, consulta, duplicidade, capacidade e execução.
+- [x] Definir `CommandSpec` com nome, função, descrição e flags.
+- [x] Implementar um único `CommandRegistry` para comandos nativos e de packages.
+- [x] Substituir o enum fechado de comandos por consulta ao registro.
+- [x] Migrar todos os comandos nativos sem alterar seus nomes ou atalhos.
+- [x] Fazer `M-x`, keymap e packages consultarem o mesmo registro.
+- [x] Rejeitar nomes vazios, duplicados ou maiores que o limite documentado.
+- [x] Testar registro, consulta, duplicidade, capacidade e execução.
 
 Critérios de aceite:
 

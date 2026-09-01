@@ -12,6 +12,52 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+static int command_calls;
+
+static void test_command_callback(struct Editor *editor, bool selecting)
+{
+    assert(!editor);
+    command_calls += selecting ? 2 : 1;
+}
+
+static void test_command_registry(void)
+{
+    CommandRegistry registry;
+    command_registry_init(&registry);
+    assert(command_registry_register(&registry, "test-command", "Comando de teste",
+                                     COMMAND_FLAG_OPENS_MINIBUFFER,
+                                     test_command_callback));
+    assert(!command_registry_register(&registry, "test-command", "Duplicado", 0,
+                                      test_command_callback));
+    assert(!command_registry_register(&registry, "", "Sem nome", 0,
+                                      test_command_callback));
+    assert(!command_registry_register(&registry, "invalid", "Sem função", 0, NULL));
+    char long_name[MT_COMMAND_NAME_SIZE + 1];
+    memset(long_name, 'x', sizeof(long_name) - 1);
+    long_name[sizeof(long_name) - 1] = '\0';
+    assert(!command_registry_register(&registry, long_name, "Nome longo", 0,
+                                      test_command_callback));
+    const CommandSpec *command = command_registry_find(&registry, "test-command");
+    assert(command);
+    assert(strcmp(command->description, "Comando de teste") == 0);
+    assert(command->flags & COMMAND_FLAG_OPENS_MINIBUFFER);
+    assert(command_registry_at(&registry, 0) == command);
+    assert(!command_registry_at(&registry, 1));
+    command_calls = 0;
+    assert(command_registry_execute(&registry, "test-command", NULL, true));
+    assert(command_calls == 2);
+    assert(!command_registry_execute(&registry, "missing", NULL, false));
+
+    char name[MT_COMMAND_NAME_SIZE];
+    while (registry.count < MT_MAX_COMMANDS) {
+        snprintf(name, sizeof(name), "command-%zu", registry.count);
+        assert(command_registry_register(&registry, name, "Preenche o registro", 0,
+                                         test_command_callback));
+    }
+    assert(!command_registry_register(&registry, "overflow", "Sem espaço", 0,
+                                      test_command_callback));
+}
+
 static void test_document(void)
 {
     Document document;
@@ -155,7 +201,6 @@ static void test_keymap(void)
 {
     assert(SDL_GetKeyFromName("x") == SDLK_X);
     assert(SDL_GetKeyFromName("right") == SDLK_RIGHT);
-    assert(command_from_name("cmd") == COMMAND_SHELL);
     Keymap keymap;
     keymap_init_default(&keymap);
     SDL_KeyboardEvent event = {.key = SDLK_S, .mod = SDL_KMOD_CTRL};
@@ -266,6 +311,7 @@ static void test_highlighting(void)
 
 int main(void)
 {
+    test_command_registry();
     test_document();
     test_undo_redo();
     test_grouped_typing();

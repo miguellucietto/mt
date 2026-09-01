@@ -132,8 +132,10 @@ Packages são bibliotecas compartilhadas `.so` colocadas em
 bool mt_package_init(MtAPI *api);
 ```
 
-O package usa `api->register_command` para expor comandos ao `M-x` e ao keymap.
-Há um exemplo em `examples/hello-package.c`:
+O package usa `api->register_command` para expor ao mesmo registro usado pelos
+comandos nativos o nome, a descrição, as flags e a função do comando. Assim, o
+comando fica disponível no `M-x`, na listagem de comandos e no keymap. Há um
+exemplo em `examples/hello-package.c`:
 
 ```sh
 make package-example
@@ -147,6 +149,7 @@ usem a API pública declarada em `include/`.
 ## Arquitetura
 
 - `buffer`: ciclo de vida e troca de buffers, arquivos e diretórios
+- `command`: registro e resolução unificados de comandos nativos e de packages
 - `document`: armazenamento mutável, seleção e persistência
 - `text`: navegação UTF-8 e coordenadas de texto
 - `editor`: eventos e execução dos comandos nativos
