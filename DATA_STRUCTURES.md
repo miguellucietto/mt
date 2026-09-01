@@ -29,7 +29,7 @@ structure that meets the measured requirement.
 | Keybindings | fixed array of 64 bindings | keep until A9 | scopes/sequences require redesign |
 | Packages | fixed array of 32 handles | keep temporarily | ABI lifecycle work in A8/A11 |
 | Minibuffer text | fixed bounded arrays | keep | session model in A10 |
-| Search state | fixed bounded arrays in `Editor` | move, then reassess | A2 extraction |
+| Search state | fixed bounded arrays in `SearchState` | keep | measured capacity need |
 | Dired entries | rendered text parsed as records | replace later | formal mode/file model |
 | Highlight spans | fixed per-line stack array | keep for current lexer | incremental mode/highlighting work |
 | Messages | one fixed 256-byte field | replace later | `*messages*` log buffer |
@@ -239,13 +239,14 @@ not demonstrate a path-capacity problem.
 
 ### Editor aggregate
 
-Current representation: one large `Editor` struct owning subsystems and transient
-state.
+Current representation: one aggregate `Editor` struct owning subsystem values,
+controller state, and remaining per-view transient state.
 
-Using an aggregate root is appropriate, but feature-specific state is embedded in
-the wrong owner. A2 should extract controllers while keeping `Editor` as the
-lifecycle/composition root. A7 should later move per-view state out of it. This is
-an ownership refactor, not a reason to introduce inheritance-style abstractions.
+Decision: A2 retained `Editor` as the lifecycle/composition root and moved search,
+file, and Dired state behind their controller types. This aggregate ownership is
+appropriate because subsystem lifetimes still match the application lifetime.
+A7 should move cursor and scrolling state into views when independent views are
+introduced; no earlier split is justified.
 
 The A2 editing extraction reviewed these structures and intentionally retained
 them: editing commands operate on stable `Buffer *` and byte offsets, so changing

@@ -34,10 +34,11 @@ this plan describes the low-coupling foundation required to implement them.
 - Configuration follows `XDG_CONFIG_HOME`.
 - Dynamic packages have an initial working implementation.
 - Tests cover documents, UTF-8, buffers, keymaps, and safe saving.
+- Editing, search, file, Dired, and shell behavior have dedicated controllers;
+  `editor.c` now composes them and coordinates lifecycle and input routing.
 
 ### Confirmed limitations
 
-- `editor.c` still combines events, editing, search, Dired, shell, and UI coordination.
 - The command registry is unified, but still has fixed capacity.
 - Packages receive `Editor *` and depend on internal structures.
 - There is no formal major-mode interface.
@@ -77,7 +78,7 @@ Suggested branch: `refactor/editor-controller`
 - [x] Extract file operations and confirmations.
 - [x] Extract Dired from the general event loop.
 - [x] Separate external-process execution from presentation.
-- [ ] Keep `editor.c` responsible only for lifecycle and coordination.
+- [x] Keep `editor.c` responsible only for lifecycle and coordination.
 - [x] Add direct tests for extracted controllers.
 
 Acceptance criteria:

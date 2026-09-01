@@ -216,7 +216,7 @@ file support.
 
 ## Current recommended work
 
-The command registry step in `ARCHITECTURE.md` is complete. The next structural
-step is A2, decomposing the editor controller before more behavior is added to
-`editor.c`. Reliability work from Priority 0 should continue after each safe,
-isolated architectural migration.
+The command registry and editor-controller decomposition in `ARCHITECTURE.md`
+are complete. The next structural step is A3, typed configuration, which enables
+safe theme, font, process, and behavior settings. Reliability work from Priority
+0 should continue after each safe, isolated architectural migration.
