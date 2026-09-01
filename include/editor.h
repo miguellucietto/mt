@@ -7,6 +7,7 @@
 #include "keymap.h"
 #include "minibuffer.h"
 #include "package.h"
+#include "search.h"
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include <stdbool.h>
@@ -29,9 +30,7 @@ typedef struct Editor {
     bool running, dragging;
     bool suppress_text_until_keyup;
     char pending_path[MT_PATH_SIZE];
-    char search_text[1024];
-    char replace_text[1024];
-    size_t search_origin;
+    SearchState search;
     char message[256];
 } Editor;
 bool editor_init(Editor *editor, const char *path);

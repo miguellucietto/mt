@@ -81,6 +81,42 @@ static void test_editing_controller(void)
     buffers_destroy(&editor.buffers);
 }
 
+static void test_search_controller(void)
+{
+    Editor editor = {0};
+    command_registry_init(&editor.commands);
+    assert(search_register_commands(&editor));
+    assert(editor.commands.count == 2);
+    assert(buffers_init(&editor.buffers));
+    Document *document = editor_current_document(&editor);
+    assert(document_insert(document, "one two one"));
+    document->cursor = document->anchor = 0;
+
+    assert(command_registry_execute(&editor.commands, "isearch", &editor, false));
+    minibuffer_insert(&editor.minibuffer, "two");
+    search_update(&editor);
+    assert(document_selection_start(document) == 4);
+    assert(document_selection_end(document) == 7);
+    search_cancel(&editor);
+    assert(document->cursor == 0 && document->anchor == 0);
+
+    assert(command_registry_execute(&editor.commands, "query-replace", &editor, false));
+    assert(search_submit(&editor, MINIBUFFER_QUERY_FIND, "one"));
+    assert(search_submit(&editor, MINIBUFFER_QUERY_REPLACE, "X"));
+    assert(editor.minibuffer.mode == MINIBUFFER_QUERY_CONFIRM);
+    SDL_Event replace = {0};
+    replace.type = SDL_EVENT_KEY_DOWN;
+    replace.key.key = SDLK_Y;
+    assert(search_handle_confirmation(&editor, &replace));
+    assert(strcmp(document->text, "X two one") == 0);
+    SDL_Event stop = {0};
+    stop.type = SDL_EVENT_KEY_DOWN;
+    stop.key.key = SDLK_Q;
+    assert(search_handle_confirmation(&editor, &stop));
+    assert(editor.minibuffer.mode == MINIBUFFER_INACTIVE);
+    buffers_destroy(&editor.buffers);
+}
+
 static void test_document(void)
 {
     Document document;
@@ -336,6 +372,7 @@ int main(void)
 {
     test_command_registry();
     test_editing_controller();
+    test_search_controller();
     test_document();
     test_undo_redo();
     test_grouped_typing();

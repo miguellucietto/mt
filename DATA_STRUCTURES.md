@@ -159,9 +159,10 @@ path or shell workloads require it.
 
 Current representation: fixed arrays and scalar fields embedded in `Editor`.
 
-Problem: the storage itself is adequate for current limits, but its ownership is
-wrong. Search behavior and state should move together into a search controller in
-A2. Capacity changes should wait until that boundary is established.
+The storage itself remains adequate for current limits. During A2, query,
+replacement, and origin moved together into `SearchState`, owned by the search
+controller and composed by `Editor`. Capacity changes still require real workload
+evidence; the ownership problem did not justify changing the bounded arrays.
 
 ### Dired entries
 

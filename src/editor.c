@@ -153,57 +153,6 @@ size_t editor_position_from_mouse(const Editor *editor, float x, float y)
     return text_position_at(&buffer->document, line, column);
 }
 
-static bool find_text(Editor *editor, size_t start, bool wrap)
-{
-    Document *document = editor_current_document(editor);
-    if (!editor->search_text[0]) {
-        document->cursor = document->anchor = editor->search_origin;
-        return false;
-    }
-    const char *match = strstr(document->text + start, editor->search_text);
-    if (!match && wrap && start > 0) {
-        match = strstr(document->text, editor->search_text);
-        if (match && (size_t)(match - document->text) >= start)
-            match = NULL;
-    }
-    if (!match)
-        return false;
-    document->anchor = (size_t)(match - document->text);
-    document->cursor = document->anchor + strlen(editor->search_text);
-    editor_ensure_cursor_visible(editor);
-    return true;
-}
-
-static void update_isearch(Editor *editor)
-{
-    snprintf(editor->search_text, sizeof(editor->search_text), "%s",
-             editor->minibuffer.input);
-    if (!find_text(editor, editor->search_origin, true) && editor->search_text[0])
-        snprintf(editor->message, sizeof(editor->message), "Sem resultado: %.180s",
-                 editor->search_text);
-}
-
-static bool query_next(Editor *editor)
-{
-    Document *document = editor_current_document(editor);
-    size_t start = document_selection_end(document);
-    if (!find_text(editor, start, false)) {
-        minibuffer_close(&editor->minibuffer);
-        snprintf(editor->message, sizeof(editor->message), "Query replace concluído");
-        return false;
-    }
-    minibuffer_open(&editor->minibuffer, MINIBUFFER_QUERY_CONFIRM,
-                    "Replace? y/n/!/q: ");
-    return true;
-}
-
-static void replace_current_match(Editor *editor)
-{
-    Buffer *buffer = editor_current_buffer(editor);
-    if (!buffer->read_only)
-        document_insert(&buffer->document, editor->replace_text);
-}
-
 static void execute_shell(Editor *editor, const char *command)
 {
     char shell_command[2048];
@@ -342,24 +291,6 @@ static void command_newline(Editor *editor, bool selecting)
         document_insert(&buffer->document, "\n");
 }
 
-static void command_isearch(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    editor->search_origin = editor_current_document(editor)->cursor;
-    editor->search_text[0] = '\0';
-    minibuffer_open(&editor->minibuffer, MINIBUFFER_ISEARCH, "I-search: ");
-}
-
-static void command_query_replace(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    Buffer *buffer = editor_current_buffer(editor);
-    if (!buffer->read_only) {
-        editor->search_origin = buffer->document.cursor;
-        minibuffer_open(&editor->minibuffer, MINIBUFFER_QUERY_FIND, "Query replace: ");
-    }
-}
-
 static void command_execute_command(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -459,13 +390,11 @@ static bool register_native_commands(Editor *editor)
 {
     if (!editing_register_commands(editor))
         return false;
+    if (!search_register_commands(editor))
+        return false;
     static const NativeCommand commands[] = {
         {"newline", "Insere uma nova linha ou abre a entrada do Dired", 0,
          command_newline},
-        {"isearch", "Inicia busca incremental", COMMAND_FLAG_OPENS_MINIBUFFER,
-         command_isearch},
-        {"query-replace", "Substitui ocorrências com confirmação",
-         COMMAND_FLAG_OPENS_MINIBUFFER, command_query_replace},
         {"execute-command", "Executa um comando pelo nome",
          COMMAND_FLAG_OPENS_MINIBUFFER, command_execute_command},
         {"cmd", "Executa um comando do shell", COMMAND_FLAG_OPENS_MINIBUFFER,
@@ -605,18 +534,8 @@ static void submit_minibuffer(Editor *editor)
         editor->running = false;
     } else if (mode == MINIBUFFER_QUIT_CONFIRM) {
         snprintf(editor->message, sizeof(editor->message), "Saída cancelada");
-    } else if (mode == MINIBUFFER_ISEARCH) {
-        snprintf(editor->search_text, sizeof(editor->search_text), "%s", value);
-    } else if (mode == MINIBUFFER_QUERY_FIND) {
-        snprintf(editor->search_text, sizeof(editor->search_text), "%s", value);
-        minibuffer_open(&editor->minibuffer, MINIBUFFER_QUERY_REPLACE,
-                        "Replace with: ");
-    } else if (mode == MINIBUFFER_QUERY_REPLACE) {
-        snprintf(editor->replace_text, sizeof(editor->replace_text), "%s", value);
-        Document *document = editor_current_document(editor);
-        document->cursor = document->anchor = editor->search_origin;
-        query_next(editor);
-    }
+    } else
+        search_submit(editor, mode, value);
     editor->scroll_line = 0;
 }
 
@@ -630,51 +549,28 @@ static bool handle_minibuffer_event(Editor *editor, const SDL_Event *event)
     }
     if (event->type == SDL_EVENT_TEXT_INPUT && editor->suppress_text_until_keyup)
         return true;
-    if (editor->minibuffer.mode == MINIBUFFER_QUERY_CONFIRM) {
-        if (event->type != SDL_EVENT_KEY_DOWN)
-            return true;
-        SDL_Keycode key = event->key.key;
-        if (key == SDLK_Y) {
-            replace_current_match(editor);
-            query_next(editor);
-        } else if (key == SDLK_N) {
-            Document *document = editor_current_document(editor);
-            document->cursor = document->anchor = document_selection_end(document);
-            query_next(editor);
-        } else if (key == SDLK_EXCLAIM ||
-                   (key == SDLK_1 && (event->key.mod & SDL_KMOD_SHIFT))) {
-            do {
-                replace_current_match(editor);
-            } while (query_next(editor));
-        } else if (key == SDLK_Q || key == SDLK_ESCAPE) {
-            minibuffer_close(&editor->minibuffer);
-            snprintf(editor->message, sizeof(editor->message),
-                     "Query replace encerrado");
-        }
+    if (search_handle_confirmation(editor, event))
         return true;
-    }
     if (event->type == SDL_EVENT_TEXT_INPUT)
         minibuffer_insert(&editor->minibuffer, event->text.text);
     else if (event->type == SDL_EVENT_KEY_DOWN) {
         if (event->key.key == SDLK_ESCAPE) {
             if (editor->minibuffer.mode == MINIBUFFER_ISEARCH) {
-                Document *document = editor_current_document(editor);
-                document->cursor = document->anchor = editor->search_origin;
+                search_cancel(editor);
             }
             minibuffer_close(&editor->minibuffer);
         } else if (event->key.key == SDLK_BACKSPACE)
             minibuffer_backspace(&editor->minibuffer);
         else if (editor->minibuffer.mode == MINIBUFFER_ISEARCH &&
                  event->key.key == SDLK_F && (event->key.mod & SDL_KMOD_CTRL)) {
-            Document *document = editor_current_document(editor);
-            find_text(editor, document_selection_end(document), true);
+            search_next(editor);
         } else if (event->key.key == SDLK_RETURN || event->key.key == SDLK_KP_ENTER)
             submit_minibuffer(editor);
     }
     if (editor->minibuffer.mode == MINIBUFFER_ISEARCH &&
         (event->type == SDL_EVENT_TEXT_INPUT ||
          (event->type == SDL_EVENT_KEY_DOWN && event->key.key == SDLK_BACKSPACE)))
-        update_isearch(editor);
+        search_update(editor);
     return event->type == SDL_EVENT_TEXT_INPUT || event->type == SDL_EVENT_KEY_DOWN;
 }
 
