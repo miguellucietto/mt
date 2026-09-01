@@ -64,8 +64,8 @@ static void test_editing_controller(void)
     Editor editor = {0};
     command_registry_init(&editor.commands);
     assert(editing_register_commands(&editor));
-    assert(editor.commands.count == 23);
-    assert(command_registry_find(&editor.commands, "save"));
+    assert(editor.commands.count == 22);
+    assert(command_registry_find(&editor.commands, "undo"));
     const CommandSpec *vertical = command_registry_find(&editor.commands, "cursor-up");
     assert(vertical && (vertical->flags & COMMAND_FLAG_KEEP_COLUMN));
 
@@ -78,6 +78,29 @@ static void test_editing_controller(void)
     assert(document->cursor == strlen("aç\nlin"));
     assert(command_registry_execute(&editor.commands, "undo", &editor, false));
     assert(strcmp(document->text, "") == 0);
+    buffers_destroy(&editor.buffers);
+}
+
+static void test_file_controller(void)
+{
+    Editor editor = {.running = true};
+    command_registry_init(&editor.commands);
+    assert(file_register_commands(&editor));
+    assert(editor.commands.count == 3);
+    const CommandSpec *find = command_registry_find(&editor.commands, "find-file");
+    assert(find && (find->flags & COMMAND_FLAG_OPENS_MINIBUFFER));
+    assert(buffers_init(&editor.buffers));
+    assert(document_insert(editor_current_document(&editor), "unsaved"));
+
+    file_request_quit(&editor);
+    assert(editor.running);
+    assert(editor.minibuffer.mode == MINIBUFFER_QUIT_CONFIRM);
+    assert(file_submit(&editor, MINIBUFFER_QUIT_CONFIRM, "no"));
+    assert(editor.running);
+    assert(strcmp(editor.message, "Saída cancelada") == 0);
+    assert(file_submit(&editor, MINIBUFFER_QUIT_CONFIRM, "yes"));
+    assert(!editor.running);
+    assert(!file_submit(&editor, MINIBUFFER_COMMAND, "yes"));
     buffers_destroy(&editor.buffers);
 }
 
@@ -373,6 +396,7 @@ int main(void)
     test_command_registry();
     test_editing_controller();
     test_search_controller();
+    test_file_controller();
     test_document();
     test_undo_redo();
     test_grouped_typing();

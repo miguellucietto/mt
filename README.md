@@ -160,6 +160,7 @@ stabilization and opaque handles are tracked in `ARCHITECTURE.md`.
 - `text`: UTF-8 navigation and text coordinates
 - `editor`: event handling and command coordination
 - `editing`: editing and navigation command implementations
+- `file_controller`: file opening, saving, and destructive-action confirmations
 - `search`: incremental search and query-replace state and behavior
 - `minibuffer`: command and argument input
 - `keymap`: configurable mapping from keys to command names

@@ -209,13 +209,8 @@ static void open_dired_entry(Editor *editor)
     if (directory)
         buffer_refresh_directory(buffer, path, editor->message,
                                  sizeof(editor->message));
-    else if (buffers_file_would_replace_modified(&editor->buffers, path)) {
-        snprintf(editor->pending_path, sizeof(editor->pending_path), "%s", path);
-        minibuffer_open(&editor->minibuffer, MINIBUFFER_REPLACE_BUFFER_CONFIRM,
-                        "Buffer modificado. Substituir? digite yes: ");
-    } else
-        buffers_open_file(&editor->buffers, path, editor->message,
-                          sizeof(editor->message));
+    else
+        file_open(editor, path);
     editor->scroll_line = 0;
 }
 
@@ -267,20 +262,6 @@ static void show_commands(Editor *editor)
     editor->scroll_line = 0;
 }
 
-static void request_quit(Editor *editor)
-{
-    size_t modified = buffers_modified_count(&editor->buffers);
-    if (!modified) {
-        editor->running = false;
-        return;
-    }
-    char prompt[64];
-    snprintf(prompt, sizeof(prompt),
-             "%zu buffer%s modificado%s. Sair? digite yes: ", modified,
-             modified == 1 ? "" : "s", modified == 1 ? "" : "s");
-    minibuffer_open(&editor->minibuffer, MINIBUFFER_QUIT_CONFIRM, prompt);
-}
-
 static void command_newline(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -301,12 +282,6 @@ static void command_shell(Editor *editor, bool selecting)
 {
     (void)selecting;
     minibuffer_open(&editor->minibuffer, MINIBUFFER_SHELL, "Shell command: ");
-}
-
-static void command_find_file(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    minibuffer_open(&editor->minibuffer, MINIBUFFER_FIND_FILE, "Find file: ");
 }
 
 static void command_dired(Editor *editor, bool selecting)
@@ -373,12 +348,6 @@ static void command_list_commands(Editor *editor, bool selecting)
     show_commands(editor);
 }
 
-static void command_quit(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    request_quit(editor);
-}
-
 typedef struct {
     const char *name;
     const char *description;
@@ -392,6 +361,8 @@ static bool register_native_commands(Editor *editor)
         return false;
     if (!search_register_commands(editor))
         return false;
+    if (!file_register_commands(editor))
+        return false;
     static const NativeCommand commands[] = {
         {"newline", "Insere uma nova linha ou abre a entrada do Dired", 0,
          command_newline},
@@ -399,8 +370,6 @@ static bool register_native_commands(Editor *editor)
          COMMAND_FLAG_OPENS_MINIBUFFER, command_execute_command},
         {"cmd", "Executa um comando do shell", COMMAND_FLAG_OPENS_MINIBUFFER,
          command_shell},
-        {"find-file", "Abre um arquivo", COMMAND_FLAG_OPENS_MINIBUFFER,
-         command_find_file},
         {"dired", "Abre um diretório", COMMAND_FLAG_OPENS_MINIBUFFER, command_dired},
         {"next-buffer", "Alterna para o próximo buffer", 0, command_next_buffer},
         {"dired-open", "Abre a entrada selecionada no Dired", 0, command_dired_open},
@@ -415,7 +384,6 @@ static bool register_native_commands(Editor *editor)
          command_dired_delete},
         {"list-commands", "Lista todos os comandos registrados", 0,
          command_list_commands},
-        {"quit", "Encerra o editor", 0, command_quit},
     };
     for (size_t i = 0; i < SDL_arraysize(commands); i++)
         if (!command_registry_register(&editor->commands, commands[i].name,
@@ -463,15 +431,7 @@ static void submit_minibuffer(Editor *editor)
         editor_execute_named(editor, value, false);
     else if (mode == MINIBUFFER_SHELL)
         execute_shell(editor, value);
-    else if (mode == MINIBUFFER_FIND_FILE) {
-        if (buffers_file_would_replace_modified(&editor->buffers, value)) {
-            snprintf(editor->pending_path, sizeof(editor->pending_path), "%s", value);
-            minibuffer_open(&editor->minibuffer, MINIBUFFER_REPLACE_BUFFER_CONFIRM,
-                            "Buffer modificado. Substituir? digite yes: ");
-        } else
-            buffers_open_file(&editor->buffers, value, editor->message,
-                              sizeof(editor->message));
-    } else if (mode == MINIBUFFER_DIRED) {
+    else if (mode == MINIBUFFER_DIRED) {
         Buffer *buffer = buffers_create(&editor->buffers, "*dired*", BUFFER_DIRECTORY);
         if (buffer)
             buffer_refresh_directory(buffer, value, editor->message,
@@ -524,17 +484,7 @@ static void submit_minibuffer(Editor *editor)
                      strerror(errno));
     } else if (mode == MINIBUFFER_DELETE_CONFIRM) {
         snprintf(editor->message, sizeof(editor->message), "Exclusão cancelada");
-    } else if (mode == MINIBUFFER_REPLACE_BUFFER_CONFIRM && strcmp(value, "yes") == 0) {
-        buffers_open_file_confirmed(&editor->buffers, editor->pending_path,
-                                    editor->message, sizeof(editor->message));
-    } else if (mode == MINIBUFFER_REPLACE_BUFFER_CONFIRM) {
-        snprintf(editor->message, sizeof(editor->message),
-                 "Substituição de buffer cancelada");
-    } else if (mode == MINIBUFFER_QUIT_CONFIRM && strcmp(value, "yes") == 0) {
-        editor->running = false;
-    } else if (mode == MINIBUFFER_QUIT_CONFIRM) {
-        snprintf(editor->message, sizeof(editor->message), "Saída cancelada");
-    } else
+    } else if (!file_submit(editor, mode, value))
         search_submit(editor, mode, value);
     editor->scroll_line = 0;
 }
@@ -577,7 +527,7 @@ static bool handle_minibuffer_event(Editor *editor, const SDL_Event *event)
 static void handle_event(Editor *editor, const SDL_Event *event)
 {
     if (event->type == SDL_EVENT_QUIT) {
-        request_quit(editor);
+        file_request_quit(editor);
         return;
     }
     if (handle_minibuffer_event(editor, event))

@@ -72,7 +72,7 @@ Suggested branch: `refactor/editor-controller`
 
 - [x] Extract editing commands into their own module.
 - [x] Extract search and replacement.
-- [ ] Extract file operations and confirmations.
+- [x] Extract file operations and confirmations.
 - [ ] Extract Dired from the general event loop.
 - [ ] Separate external-process execution from presentation.
 - [ ] Keep `editor.c` responsible only for lifecycle and coordination.

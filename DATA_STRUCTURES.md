@@ -214,6 +214,11 @@ Decision: keep until configuration and platform abstractions are introduced. A3
 should centralize path construction and reject truncation; portability work can
 then select an owned dynamic path type if necessary.
 
+During A2, the pending find-file replacement path moved into `FileState`. Dired's
+pending operation path remains separate until the Dired controller extraction.
+Both retain the existing bounded representation because the change concerns
+ownership and does not demonstrate a path-capacity problem.
+
 ### Editor aggregate
 
 Current representation: one large `Editor` struct owning subsystems and transient

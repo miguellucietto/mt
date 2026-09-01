@@ -64,14 +64,6 @@ static size_t next_word(const Document *document, size_t position)
     return position;
 }
 
-static void command_save(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    Buffer *buffer = editor_current_buffer(editor);
-    if (!buffer->read_only)
-        document_save(&buffer->document, editor->message, sizeof(editor->message));
-}
-
 static void command_select_all(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -251,7 +243,6 @@ typedef struct {
 bool editing_register_commands(Editor *editor)
 {
     static const EditingCommand commands[] = {
-        {"save", "Salva o buffer atual", 0, command_save},
         {"select-all", "Seleciona todo o buffer", 0, command_select_all},
         {"copy", "Copia a seleção", 0, command_copy},
         {"cut", "Recorta a seleção", 0, command_cut},

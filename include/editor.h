@@ -4,6 +4,7 @@
 #include "command.h"
 #include "config.h"
 #include "document.h"
+#include "file_controller.h"
 #include "keymap.h"
 #include "minibuffer.h"
 #include "package.h"
@@ -31,6 +32,7 @@ typedef struct Editor {
     bool suppress_text_until_keyup;
     char pending_path[MT_PATH_SIZE];
     SearchState search;
+    FileState files;
     char message[256];
 } Editor;
 bool editor_init(Editor *editor, const char *path);
