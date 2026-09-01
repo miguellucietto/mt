@@ -109,11 +109,35 @@ On first launch, mt creates:
 ```text
 ~/.config/mt/
 ├── keymap.conf
+├── settings.conf
 └── packages/
 ```
 
 When `XDG_CONFIG_HOME` is set, it is used instead of `~/.config`. The legacy
 `MT_KEYMAP` variable is no longer required.
+
+`settings.conf` uses typed `key = value` entries. It is created with documented
+defaults on first launch:
+
+```text
+window.width = 1000
+window.height = 700
+font.size = 18
+layout.line_spacing = 4
+layout.gutter_width = 58
+layout.top_height = 40
+layout.status_height = 27
+layout.padding = 10
+tab.width = 4
+tab.insert_spaces = true
+search.wrap = true
+search.case_sensitive = true
+process.output_limit = 16777216
+```
+
+Boolean values must be `true` or `false`. Unknown keys, duplicate keys, invalid
+types, and out-of-range values are rejected with the file and line number. The
+entire file is validated before any setting is applied.
 
 The `keymap.conf` format is:
 

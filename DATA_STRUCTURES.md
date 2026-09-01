@@ -249,10 +249,11 @@ Strengths: consumers no longer own duplicated visual or Tab defaults, every
 field is always initialized before use, and adding parsing does not require
 stringly typed values in editor modules.
 
-Decision: keep the aggregate value and validate complete candidate copies before
-assignment. Search and process fields are defined now but must remain at their
-behavior-preserving defaults until their consumers are migrated in dedicated A3
-checkpoints.
+Decision: keep the aggregate value. The settings parser mutates a candidate copy,
+rejects unknown or duplicate fields, validates strict types and ranges, and only
+assigns the candidate after the complete file succeeds. Search and process fields
+must remain at their behavior-preserving defaults until their consumers are
+migrated in dedicated A3 checkpoints.
 
 ### Editor aggregate
 

@@ -56,8 +56,6 @@ bool editor_init(Editor *editor, const char *path)
 {
     memset(editor, 0, sizeof(*editor));
     settings_init_defaults(&editor->settings);
-    editor->width = editor->settings.window_width;
-    editor->height = editor->settings.window_height;
     editor->wanted_column = -1;
     editor->running = true;
     packages_init(&editor->packages);
@@ -71,6 +69,14 @@ bool editor_init(Editor *editor, const char *path)
         !config_paths_prepare(&editor->config_paths, editor->message,
                               sizeof(editor->message)))
         goto error;
+    if (!settings_ensure_file(editor->config_paths.settings_path, editor->message,
+                              sizeof(editor->message)))
+        goto error;
+    if (!settings_load_file(&editor->settings, editor->config_paths.settings_path,
+                            editor->message, sizeof(editor->message)))
+        goto error;
+    editor->width = editor->settings.window_width;
+    editor->height = editor->settings.window_height;
     keymap_init_default(&editor->keymap);
     keymap_load(&editor->keymap, editor->config_paths.keymap_path, editor->message,
                 sizeof(editor->message));

@@ -112,6 +112,76 @@ static void test_settings_defaults(void)
     assert(settings.tab_width == 4 && settings.tab_insert_spaces);
     assert(settings.search_wrap && settings.search_case_sensitive);
     assert(settings.process_output_limit == 16 * 1024 * 1024);
+    char message[128];
+    assert(settings_validate(&settings, message, sizeof(message)));
+}
+
+/* Verifies strict typed parsing and transactional rejection of invalid files. */
+static void test_settings_loading(void)
+{
+    char directory[] = "/tmp/mt-settings-test-XXXXXX";
+    assert(mkdtemp(directory));
+    char path[512];
+    assert(snprintf(path, sizeof(path), "%s/settings.conf", directory) > 0);
+    char message[1024];
+    assert(settings_ensure_file(path, message, sizeof(message)));
+    Settings settings;
+    settings_init_defaults(&settings);
+    Settings defaults = settings;
+    assert(settings_load_file(&settings, path, message, sizeof(message)));
+    assert(memcmp(&settings, &defaults, sizeof(settings)) == 0);
+
+    FILE *file = fopen(path, "wb");
+    assert(file);
+    const char *valid = "# typed settings\n"
+                        "window.width = 1200\n"
+                        "font.size = 20.5\n"
+                        "tab.width = 2\n"
+                        "tab.insert_spaces = false\n"
+                        "search.wrap = false\n"
+                        "process.output_limit = 4096\n";
+    assert(fwrite(valid, 1, strlen(valid), file) == strlen(valid));
+    assert(fclose(file) == 0);
+    assert(settings_ensure_file(path, message, sizeof(message)));
+
+    settings_init_defaults(&settings);
+    assert(settings_load_file(&settings, path, message, sizeof(message)));
+    assert(settings.window_width == 1200 && settings.font_size == 20.5f);
+    assert(settings.tab_width == 2 && !settings.tab_insert_spaces);
+    assert(!settings.search_wrap && settings.process_output_limit == 4096);
+
+    Settings unchanged = settings;
+    file = fopen(path, "wb");
+    assert(file);
+    const char *invalid = "tab.width = 3\nfont.size = invalid\n";
+    assert(fwrite(invalid, 1, strlen(invalid), file) == strlen(invalid));
+    assert(fclose(file) == 0);
+    assert(!settings_load_file(&settings, path, message, sizeof(message)));
+    assert(memcmp(&settings, &unchanged, sizeof(settings)) == 0);
+    assert(strstr(message, path) && strstr(message, ":2:"));
+
+    file = fopen(path, "wb");
+    assert(file);
+    const char *duplicate = "tab.width = 2\ntab.width = 4\n";
+    assert(fwrite(duplicate, 1, strlen(duplicate), file) == strlen(duplicate));
+    assert(fclose(file) == 0);
+    assert(!settings_load_file(&settings, path, message, sizeof(message)));
+    assert(strstr(message, ":2: duplicate setting"));
+    assert(memcmp(&settings, &unchanged, sizeof(settings)) == 0);
+
+    file = fopen(path, "wb");
+    assert(file);
+    const char *unknown = "tab.width = 2\nunknown.option = true\n";
+    assert(fwrite(unknown, 1, strlen(unknown), file) == strlen(unknown));
+    assert(fclose(file) == 0);
+    assert(!settings_load_file(&settings, path, message, sizeof(message)));
+    assert(strstr(message, ":2: unknown setting"));
+    assert(memcmp(&settings, &unchanged, sizeof(settings)) == 0);
+
+    assert(unlink(path) == 0);
+    assert(settings_load_file(&settings, path, message, sizeof(message)));
+    assert(memcmp(&settings, &unchanged, sizeof(settings)) == 0);
+    assert(rmdir(directory) == 0);
 }
 
 /* Verifies pure path derivation and non-destructive filesystem preparation. */
@@ -571,6 +641,7 @@ int main(void)
 {
     test_command_registry();
     test_settings_defaults();
+    test_settings_loading();
     test_config_paths();
     test_editing_controller();
     test_search_controller();

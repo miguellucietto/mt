@@ -92,9 +92,9 @@ Acceptance criteria:
 Suggested branch: `feat/settings`
 
 - [x] Define typed settings with centralized defaults.
-- [ ] Separate path discovery, parsing, and validation.
-- [ ] Load the entire configuration before applying it.
-- [ ] Report every error with file and line.
+- [x] Separate path discovery, parsing, and validation.
+- [x] Load the entire configuration before applying it.
+- [x] Report every error with file and line.
 - [ ] Reload safely without restarting.
 - [ ] Add settings for Tab, search, processes, and visual preferences.
 - [ ] Test defaults, valid values, errors, and transactional reload.
