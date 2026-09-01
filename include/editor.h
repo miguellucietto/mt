@@ -3,6 +3,7 @@
 #include "buffer.h"
 #include "command.h"
 #include "config.h"
+#include "dired_controller.h"
 #include "document.h"
 #include "file_controller.h"
 #include "keymap.h"
@@ -30,7 +31,7 @@ typedef struct Editor {
     int width, height, line_height, char_width, scroll_line, wanted_column;
     bool running, dragging;
     bool suppress_text_until_keyup;
-    char pending_path[MT_PATH_SIZE];
+    DiredState dired;
     SearchState search;
     FileState files;
     char message[256];

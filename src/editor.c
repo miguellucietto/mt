@@ -4,13 +4,10 @@
 #include "text.h"
 
 #include <ctype.h>
-#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 static bool register_native_commands(Editor *editor);
 
@@ -198,55 +195,6 @@ static void execute_shell(Editor *editor, const char *command)
              status);
 }
 
-static void open_dired_entry(Editor *editor)
-{
-    Buffer *buffer = editor_current_buffer(editor);
-    int line = text_line_at(&buffer->document, buffer->document.cursor);
-    char path[MT_PATH_SIZE];
-    bool directory;
-    if (!buffer_directory_entry(buffer, line, path, sizeof(path), &directory))
-        return;
-    if (directory)
-        buffer_refresh_directory(buffer, path, editor->message,
-                                 sizeof(editor->message));
-    else
-        file_open(editor, path);
-    editor->scroll_line = 0;
-}
-
-static bool selected_dired_path(Editor *editor, char *path, size_t size)
-{
-    Buffer *buffer = editor_current_buffer(editor);
-    if (buffer->type != BUFFER_DIRECTORY)
-        return false;
-    int line = text_line_at(&buffer->document, buffer->document.cursor);
-    bool is_directory;
-    return buffer_directory_entry(buffer, line, path, size, &is_directory);
-}
-
-static bool dired_target_path(Editor *editor, const char *input, char *path,
-                              size_t size)
-{
-    if (!input || !*input)
-        return false;
-    if (input[0] == '/')
-        return snprintf(path, size, "%s", input) < (int)size;
-    Buffer *buffer = editor_current_buffer(editor);
-    return buffer->type == BUFFER_DIRECTORY &&
-           snprintf(path, size, "%s/%s", buffer->directory, input) < (int)size;
-}
-
-static void refresh_current_dired(Editor *editor)
-{
-    Buffer *buffer = editor_current_buffer(editor);
-    if (buffer->type == BUFFER_DIRECTORY) {
-        char directory[MT_PATH_SIZE];
-        snprintf(directory, sizeof(directory), "%s", buffer->directory);
-        buffer_refresh_directory(buffer, directory, editor->message,
-                                 sizeof(editor->message));
-    }
-}
-
 static void show_commands(Editor *editor)
 {
     char contents[16384];
@@ -267,7 +215,7 @@ static void command_newline(Editor *editor, bool selecting)
     (void)selecting;
     Buffer *buffer = editor_current_buffer(editor);
     if (buffer->type == BUFFER_DIRECTORY)
-        open_dired_entry(editor);
+        dired_open_selected(editor);
     else if (!buffer->read_only)
         document_insert(&buffer->document, "\n");
 }
@@ -284,62 +232,11 @@ static void command_shell(Editor *editor, bool selecting)
     minibuffer_open(&editor->minibuffer, MINIBUFFER_SHELL, "Shell command: ");
 }
 
-static void command_dired(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    minibuffer_open(&editor->minibuffer, MINIBUFFER_DIRED, "Dired: ");
-}
-
 static void command_next_buffer(Editor *editor, bool selecting)
 {
     (void)selecting;
     buffers_next(&editor->buffers);
     editor->scroll_line = 0;
-}
-
-static void command_dired_open(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    open_dired_entry(editor);
-}
-
-static void command_dired_refresh(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    Buffer *buffer = editor_current_buffer(editor);
-    if (buffer->type == BUFFER_DIRECTORY)
-        buffer_refresh_directory(buffer, buffer->directory, editor->message,
-                                 sizeof(editor->message));
-}
-
-static void command_dired_create_file(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    if (editor_current_buffer(editor)->type == BUFFER_DIRECTORY)
-        minibuffer_open(&editor->minibuffer, MINIBUFFER_CREATE_FILE, "Create file: ");
-}
-
-static void command_dired_create_directory(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    if (editor_current_buffer(editor)->type == BUFFER_DIRECTORY)
-        minibuffer_open(&editor->minibuffer, MINIBUFFER_CREATE_DIRECTORY,
-                        "Create directory: ");
-}
-
-static void command_dired_rename(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    if (selected_dired_path(editor, editor->pending_path, sizeof(editor->pending_path)))
-        minibuffer_open(&editor->minibuffer, MINIBUFFER_RENAME, "Rename to: ");
-}
-
-static void command_dired_delete(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    if (selected_dired_path(editor, editor->pending_path, sizeof(editor->pending_path)))
-        minibuffer_open(&editor->minibuffer, MINIBUFFER_DELETE_CONFIRM,
-                        "Delete? type yes: ");
 }
 
 static void command_list_commands(Editor *editor, bool selecting)
@@ -363,6 +260,8 @@ static bool register_native_commands(Editor *editor)
         return false;
     if (!file_register_commands(editor))
         return false;
+    if (!dired_register_commands(editor))
+        return false;
     static const NativeCommand commands[] = {
         {"newline", "Insere uma nova linha ou abre a entrada do Dired", 0,
          command_newline},
@@ -370,18 +269,7 @@ static bool register_native_commands(Editor *editor)
          COMMAND_FLAG_OPENS_MINIBUFFER, command_execute_command},
         {"cmd", "Executa um comando do shell", COMMAND_FLAG_OPENS_MINIBUFFER,
          command_shell},
-        {"dired", "Abre um diretório", COMMAND_FLAG_OPENS_MINIBUFFER, command_dired},
         {"next-buffer", "Alterna para o próximo buffer", 0, command_next_buffer},
-        {"dired-open", "Abre a entrada selecionada no Dired", 0, command_dired_open},
-        {"dired-refresh", "Atualiza a listagem do Dired", 0, command_dired_refresh},
-        {"dired-create-file", "Cria um arquivo pelo Dired",
-         COMMAND_FLAG_OPENS_MINIBUFFER, command_dired_create_file},
-        {"dired-create-directory", "Cria um diretório pelo Dired",
-         COMMAND_FLAG_OPENS_MINIBUFFER, command_dired_create_directory},
-        {"dired-rename", "Renomeia uma entrada do Dired", COMMAND_FLAG_OPENS_MINIBUFFER,
-         command_dired_rename},
-        {"dired-delete", "Exclui uma entrada do Dired", COMMAND_FLAG_OPENS_MINIBUFFER,
-         command_dired_delete},
         {"list-commands", "Lista todos os comandos registrados", 0,
          command_list_commands},
     };
@@ -431,60 +319,7 @@ static void submit_minibuffer(Editor *editor)
         editor_execute_named(editor, value, false);
     else if (mode == MINIBUFFER_SHELL)
         execute_shell(editor, value);
-    else if (mode == MINIBUFFER_DIRED) {
-        Buffer *buffer = buffers_create(&editor->buffers, "*dired*", BUFFER_DIRECTORY);
-        if (buffer)
-            buffer_refresh_directory(buffer, value, editor->message,
-                                     sizeof(editor->message));
-    } else if (mode == MINIBUFFER_CREATE_FILE) {
-        char path[MT_PATH_SIZE];
-        if (dired_target_path(editor, value, path, sizeof(path))) {
-            FILE *file = fopen(path, "wx");
-            if (file) {
-                fclose(file);
-                snprintf(editor->message, sizeof(editor->message), "Criado: %.220s",
-                         path);
-                refresh_current_dired(editor);
-            } else
-                snprintf(editor->message, sizeof(editor->message), "Erro ao criar: %s",
-                         strerror(errno));
-        }
-    } else if (mode == MINIBUFFER_CREATE_DIRECTORY) {
-        char path[MT_PATH_SIZE];
-        if (dired_target_path(editor, value, path, sizeof(path))) {
-            if (mkdir(path, 0755) == 0) {
-                snprintf(editor->message, sizeof(editor->message), "Criado: %.220s",
-                         path);
-                refresh_current_dired(editor);
-            } else
-                snprintf(editor->message, sizeof(editor->message), "Erro ao criar: %s",
-                         strerror(errno));
-        }
-    } else if (mode == MINIBUFFER_RENAME) {
-        char target[MT_PATH_SIZE];
-        if (dired_target_path(editor, value, target, sizeof(target))) {
-            if (rename(editor->pending_path, target) == 0) {
-                snprintf(editor->message, sizeof(editor->message), "Renomeado");
-                refresh_current_dired(editor);
-            } else
-                snprintf(editor->message, sizeof(editor->message),
-                         "Erro ao renomear: %s", strerror(errno));
-        }
-    } else if (mode == MINIBUFFER_DELETE_CONFIRM && strcmp(value, "yes") == 0) {
-        struct stat information;
-        bool directory = stat(editor->pending_path, &information) == 0 &&
-                         S_ISDIR(information.st_mode);
-        int result =
-            directory ? rmdir(editor->pending_path) : remove(editor->pending_path);
-        if (result == 0) {
-            snprintf(editor->message, sizeof(editor->message), "Excluído");
-            refresh_current_dired(editor);
-        } else
-            snprintf(editor->message, sizeof(editor->message), "Erro ao excluir: %s",
-                     strerror(errno));
-    } else if (mode == MINIBUFFER_DELETE_CONFIRM) {
-        snprintf(editor->message, sizeof(editor->message), "Exclusão cancelada");
-    } else if (!file_submit(editor, mode, value))
+    else if (!dired_submit(editor, mode, value) && !file_submit(editor, mode, value))
         search_submit(editor, mode, value);
     editor->scroll_line = 0;
 }
@@ -532,6 +367,8 @@ static void handle_event(Editor *editor, const SDL_Event *event)
     }
     if (handle_minibuffer_event(editor, event))
         return;
+    if (dired_handle_event(editor, event))
+        return;
     Buffer *buffer = editor_current_buffer(editor);
     if (event->type == SDL_EVENT_WINDOW_RESIZED) {
         editor->width = event->window.data1;
@@ -542,18 +379,13 @@ static void handle_event(Editor *editor, const SDL_Event *event)
             document_insert_typed(&buffer->document, event->text.text);
         editor_ensure_cursor_visible(editor);
     } else if (event->type == SDL_EVENT_KEY_DOWN) {
-        if (buffer->type == BUFFER_DIRECTORY && event->key.key == SDLK_G)
-            editor_execute_named(editor, "dired-refresh", false);
-        else {
-            const char *command = keymap_lookup(&editor->keymap, &event->key);
-            if (command) {
-                const CommandSpec *spec =
-                    command_registry_find(&editor->commands, command);
-                if (spec && (spec->flags & COMMAND_FLAG_OPENS_MINIBUFFER))
-                    editor->suppress_text_until_keyup = true;
-                editor_execute_named(editor, command,
-                                     (event->key.mod & SDL_KMOD_SHIFT) != 0);
-            }
+        const char *command = keymap_lookup(&editor->keymap, &event->key);
+        if (command) {
+            const CommandSpec *spec = command_registry_find(&editor->commands, command);
+            if (spec && (spec->flags & COMMAND_FLAG_OPENS_MINIBUFFER))
+                editor->suppress_text_until_keyup = true;
+            editor_execute_named(editor, command,
+                                 (event->key.mod & SDL_KMOD_SHIFT) != 0);
         }
     } else if (event->type == SDL_EVENT_MOUSE_WHEEL) {
         editor->scroll_line -= (int)(event->wheel.y * 3);

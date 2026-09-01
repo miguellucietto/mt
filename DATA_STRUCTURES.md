@@ -172,9 +172,11 @@ and type.
 Problem: presentation is acting as the data model. Sorting, metadata, marking,
 batch operations, and safe refresh all become fragile.
 
-Decision: replace when Dired receives a formal mode/controller. Use structured
-entry records with owned name/path metadata and render them one-way into the view.
-Do not add more parsing conventions to the displayed text.
+Decision: the A2 controller extraction moved Dired behavior and its pending
+operation path into `DiredState`, while deliberately retaining the rendered-line
+model. Replace that model when Dired receives formal mode data: use structured
+entry records with owned name/path metadata and render them one-way into the
+view. Do not add more parsing conventions to the displayed text.
 
 ### Highlight spans
 
@@ -214,10 +216,10 @@ Decision: keep until configuration and platform abstractions are introduced. A3
 should centralize path construction and reject truncation; portability work can
 then select an owned dynamic path type if necessary.
 
-During A2, the pending find-file replacement path moved into `FileState`. Dired's
-pending operation path remains separate until the Dired controller extraction.
-Both retain the existing bounded representation because the change concerns
-ownership and does not demonstrate a path-capacity problem.
+During A2, the pending find-file replacement path moved into `FileState`, and
+the pending Dired operation path moved into `DiredState`. Both retain the
+existing bounded representation because the change concerns ownership and does
+not demonstrate a path-capacity problem.
 
 ### Editor aggregate
 

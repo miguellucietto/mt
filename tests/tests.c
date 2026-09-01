@@ -1,5 +1,6 @@
 #include "buffer.h"
 #include "command.h"
+#include "dired_controller.h"
 #include "document.h"
 #include "editing.h"
 #include "highlight.h"
@@ -102,6 +103,54 @@ static void test_file_controller(void)
     assert(!editor.running);
     assert(!file_submit(&editor, MINIBUFFER_COMMAND, "yes"));
     buffers_destroy(&editor.buffers);
+}
+
+static void test_dired_controller(void)
+{
+    Editor editor = {0};
+    command_registry_init(&editor.commands);
+    assert(dired_register_commands(&editor));
+    assert(editor.commands.count == 7);
+    assert(command_registry_find(&editor.commands, "dired-delete"));
+    assert(buffers_init(&editor.buffers));
+
+    char root[] = "/tmp/mt-dired-test-XXXXXX";
+    assert(mkdtemp(root));
+    assert(dired_submit(&editor, MINIBUFFER_DIRED, root));
+    Buffer *buffer = editor_current_buffer(&editor);
+    assert(buffer && buffer->type == BUFFER_DIRECTORY);
+    assert(strcmp(buffer->directory, root) == 0);
+
+    assert(dired_submit(&editor, MINIBUFFER_CREATE_FILE, "created.txt"));
+    char file_path[512];
+    assert(snprintf(file_path, sizeof(file_path), "%s/created.txt", root) > 0);
+    struct stat information;
+    assert(stat(file_path, &information) == 0 && S_ISREG(information.st_mode));
+
+    assert(dired_submit(&editor, MINIBUFFER_CREATE_DIRECTORY, "created-dir"));
+    char directory_path[512];
+    assert(snprintf(directory_path, sizeof(directory_path), "%s/created-dir", root) >
+           0);
+    assert(stat(directory_path, &information) == 0 && S_ISDIR(information.st_mode));
+
+    snprintf(editor.dired.pending_path, sizeof(editor.dired.pending_path), "%s",
+             file_path);
+    assert(dired_submit(&editor, MINIBUFFER_DELETE_CONFIRM, "no"));
+    assert(stat(file_path, &information) == 0);
+    assert(dired_submit(&editor, MINIBUFFER_DELETE_CONFIRM, "yes"));
+    assert(stat(file_path, &information) != 0);
+
+    SDL_Event refresh = {0};
+    refresh.type = SDL_EVENT_KEY_DOWN;
+    refresh.key.key = SDLK_G;
+    assert(dired_handle_event(&editor, &refresh));
+    refresh.key.key = SDLK_A;
+    assert(!dired_handle_event(&editor, &refresh));
+    assert(!dired_submit(&editor, MINIBUFFER_COMMAND, "ignored"));
+
+    buffers_destroy(&editor.buffers);
+    assert(rmdir(directory_path) == 0);
+    assert(rmdir(root) == 0);
 }
 
 static void test_search_controller(void)
@@ -397,6 +446,7 @@ int main(void)
     test_editing_controller();
     test_search_controller();
     test_file_controller();
+    test_dired_controller();
     test_document();
     test_undo_redo();
     test_grouped_typing();
