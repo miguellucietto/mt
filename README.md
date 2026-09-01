@@ -173,3 +173,4 @@ stabilization and opaque handles are tracked in `ARCHITECTURE.md`.
 - `highlight`: lexical analysis independent from rendering
 - `renderer`: SDL presentation for buffers and the minibuffer
 - `config`: XDG configuration discovery and creation
+- `settings`: typed editor preferences and centralized defaults

@@ -55,8 +55,9 @@ bool editor_register_command(Editor *editor, const char *name, const char *descr
 bool editor_init(Editor *editor, const char *path)
 {
     memset(editor, 0, sizeof(*editor));
-    editor->width = 1000;
-    editor->height = 700;
+    settings_init_defaults(&editor->settings);
+    editor->width = editor->settings.window_width;
+    editor->height = editor->settings.window_height;
     editor->wanted_column = -1;
     editor->running = true;
     packages_init(&editor->packages);
@@ -79,12 +80,12 @@ bool editor_init(Editor *editor, const char *path)
                                      &editor->renderer))
         goto error;
     const char *font = find_font();
-    if (!font || !(editor->font = TTF_OpenFont(font, EDITOR_FONT_SIZE)))
+    if (!font || !(editor->font = TTF_OpenFont(font, editor->settings.font_size)))
         goto error;
     if (!TTF_GetStringSize(editor->font, "M", 1, &editor->char_width,
                            &editor->line_height))
         goto error;
-    editor->line_height += 4;
+    editor->line_height += editor->settings.line_spacing;
     SDL_StartTextInput(editor->window);
     packages_load_directory(&editor->packages, editor, editor->config.packages_path,
                             editor->message, sizeof(editor->message));
@@ -116,7 +117,8 @@ void editor_ensure_cursor_visible(Editor *editor)
     if (!document || !editor->line_height)
         return;
     int line = text_line_at(document, document->cursor);
-    int visible = (editor->height - EDITOR_TOP_HEIGHT - EDITOR_STATUS_HEIGHT) /
+    int visible = (editor->height - editor->settings.top_height -
+                   editor->settings.status_height) /
                   editor->line_height;
     if (line < editor->scroll_line)
         editor->scroll_line = line;
@@ -142,10 +144,11 @@ size_t editor_position_from_mouse(const Editor *editor, float x, float y)
     const Buffer *buffer = buffers_current_const(&editor->buffers);
     if (!buffer)
         return 0;
-    int line = editor->scroll_line + (int)(y - EDITOR_TOP_HEIGHT) / editor->line_height;
-    int column =
-        (int)(x - EDITOR_GUTTER_WIDTH - EDITOR_PADDING + editor->char_width / 2) /
-        editor->char_width;
+    int line = editor->scroll_line +
+               (int)(y - editor->settings.top_height) / editor->line_height;
+    int column = (int)(x - editor->settings.gutter_width - editor->settings.padding +
+                       editor->char_width / 2) /
+                 editor->char_width;
     if (line < 0)
         line = 0;
     if (column < 0)

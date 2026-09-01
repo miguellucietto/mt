@@ -6,6 +6,7 @@
 #include "highlight.h"
 #include "keymap.h"
 #include "process.h"
+#include "settings.h"
 #include "shell_controller.h"
 #include "text.h"
 #include <assert.h>
@@ -68,6 +69,7 @@ static void test_command_registry(void)
 static void test_editing_controller(void)
 {
     Editor editor = {0};
+    settings_init_defaults(&editor.settings);
     command_registry_init(&editor.commands);
     assert(editing_register_commands(&editor));
     assert(editor.commands.count == 22);
@@ -84,7 +86,31 @@ static void test_editing_controller(void)
     assert(document->cursor == strlen("aç\nlin"));
     assert(command_registry_execute(&editor.commands, "undo", &editor, false));
     assert(strcmp(document->text, "") == 0);
+    assert(command_registry_execute(&editor.commands, "tab", &editor, false));
+    assert(strcmp(document->text, "    ") == 0);
+    assert(command_registry_execute(&editor.commands, "undo", &editor, false));
+    editor.settings.tab_width = 2;
+    assert(command_registry_execute(&editor.commands, "tab", &editor, false));
+    assert(strcmp(document->text, "  ") == 0);
+    assert(command_registry_execute(&editor.commands, "undo", &editor, false));
+    editor.settings.tab_insert_spaces = false;
+    assert(command_registry_execute(&editor.commands, "tab", &editor, false));
+    assert(strcmp(document->text, "\t") == 0);
     buffers_destroy(&editor.buffers);
+}
+
+/* Verifies all behavior-preserving settings defaults from one initialization API. */
+static void test_settings_defaults(void)
+{
+    Settings settings = {0};
+    settings_init_defaults(&settings);
+    assert(settings.window_width == 1000 && settings.window_height == 700);
+    assert(settings.font_size == 18.0f && settings.line_spacing == 4);
+    assert(settings.gutter_width == 58 && settings.top_height == 40);
+    assert(settings.status_height == 27 && settings.padding == 10);
+    assert(settings.tab_width == 4 && settings.tab_insert_spaces);
+    assert(settings.search_wrap && settings.search_case_sensitive);
+    assert(settings.process_output_limit == 16 * 1024 * 1024);
 }
 
 /* Verifies file command registration and protected quit confirmation flows. */
@@ -497,6 +523,7 @@ static void test_highlighting(void)
 int main(void)
 {
     test_command_registry();
+    test_settings_defaults();
     test_editing_controller();
     test_search_controller();
     test_file_controller();

@@ -34,6 +34,7 @@ structure that meets the measured requirement.
 | Highlight spans | fixed per-line stack array | keep for current lexer | incremental mode/highlighting work |
 | Messages | one fixed 256-byte field | replace later | `*messages*` log buffer |
 | Configuration paths | fixed 4096-byte arrays | keep | platform/path abstraction |
+| Settings | typed scalar fields in one `Settings` value | keep | new validated options |
 
 ## Detailed findings
 
@@ -236,6 +237,20 @@ During A2, the pending find-file replacement path moved into `FileState`, and
 the pending Dired operation path moved into `DiredState`. Both retain the
 existing bounded representation because the change concerns ownership and does
 not demonstrate a path-capacity problem.
+
+### Typed settings
+
+Current representation: one inline `Settings` value composed of typed scalar
+fields with defaults initialized in a single function.
+
+Strengths: consumers no longer own duplicated visual or Tab defaults, every
+field is always initialized before use, and adding parsing does not require
+stringly typed values in editor modules.
+
+Decision: keep the aggregate value and validate complete candidate copies before
+assignment. Search and process fields are defined now but must remain at their
+behavior-preserving defaults until their consumers are migrated in dedicated A3
+checkpoints.
 
 ### Editor aggregate
 

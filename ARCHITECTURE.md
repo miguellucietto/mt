@@ -91,7 +91,7 @@ Acceptance criteria:
 
 Suggested branch: `feat/settings`
 
-- [ ] Define typed settings with centralized defaults.
+- [x] Define typed settings with centralized defaults.
 - [ ] Separate path discovery, parsing, and validation.
 - [ ] Load the entire configuration before applying it.
 - [ ] Report every error with file and line.

@@ -10,14 +10,10 @@
 #include "minibuffer.h"
 #include "package.h"
 #include "search.h"
+#include "settings.h"
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include <stdbool.h>
-#define EDITOR_FONT_SIZE 18.0f
-#define EDITOR_GUTTER_WIDTH 58
-#define EDITOR_TOP_HEIGHT 40
-#define EDITOR_STATUS_HEIGHT 27
-#define EDITOR_PADDING 10
 typedef struct Editor {
     SDL_Window *window;
     SDL_Renderer *renderer;
@@ -25,6 +21,7 @@ typedef struct Editor {
     BufferManager buffers;
     Keymap keymap;
     Config config;
+    Settings settings;
     Minibuffer minibuffer;
     PackageManager packages;
     CommandRegistry commands;

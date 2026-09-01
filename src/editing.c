@@ -156,13 +156,26 @@ static void command_delete(Editor *editor, bool selecting)
             text_next_codepoint(document->text, document->length, document->cursor));
 }
 
-/* Inserts the current fixed tab representation into a writable buffer. */
+/* Inserts the configured tab representation into a writable buffer. */
 static void command_tab(Editor *editor, bool selecting)
 {
     (void)selecting;
     Buffer *buffer = editor_current_buffer(editor);
-    if (!buffer->read_only)
-        document_insert(&buffer->document, "    ");
+    if (buffer->read_only)
+        return;
+    if (!editor->settings.tab_insert_spaces) {
+        document_insert(&buffer->document, "\t");
+        return;
+    }
+    char spaces[17];
+    int width = editor->settings.tab_width;
+    if (width < 1)
+        width = 1;
+    if (width > (int)sizeof(spaces) - 1)
+        width = (int)sizeof(spaces) - 1;
+    memset(spaces, ' ', (size_t)width);
+    spaces[width] = '\0';
+    document_insert(&buffer->document, spaces);
 }
 
 /* Moves or extends the cursor one UTF-8 codepoint to the left. */

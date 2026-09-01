@@ -73,27 +73,28 @@ void editor_render(Editor *editor)
     const SDL_Color muted = {125, 132, 150, 255};
     const SDL_Color accent = {105, 155, 255, 255};
     const SDL_Color selection = {55, 78, 125, 255};
+    const Settings *settings = &editor->settings;
     SDL_SetRenderDrawColor(editor->renderer, background.r, background.g, background.b,
                            255);
     SDL_RenderClear(editor->renderer);
-    fill(editor, (SDL_FRect){0, 0, editor->width, EDITOR_TOP_HEIGHT}, panel);
+    fill(editor, (SDL_FRect){0, 0, editor->width, settings->top_height}, panel);
     fill(editor,
-         (SDL_FRect){0, editor->height - EDITOR_STATUS_HEIGHT, editor->width,
-                     EDITOR_STATUS_HEIGHT},
+         (SDL_FRect){0, editor->height - settings->status_height, editor->width,
+                     settings->status_height},
          panel);
     fill(editor,
-         (SDL_FRect){0, EDITOR_TOP_HEIGHT, EDITOR_GUTTER_WIDTH,
-                     editor->height - EDITOR_TOP_HEIGHT - EDITOR_STATUS_HEIGHT},
+         (SDL_FRect){0, settings->top_height, settings->gutter_width,
+                     editor->height - settings->top_height - settings->status_height},
          panel);
 
     char title[512];
     snprintf(title, sizeof(title), "mt  [%zu/%zu]  %s%s", editor->buffers.active + 1,
              editor->buffers.count, buffer->name, document->dirty ? "  *" : "");
-    draw_text(editor, title, strlen(title), EDITOR_PADDING, 9, foreground);
+    draw_text(editor, title, strlen(title), settings->padding, 9, foreground);
 
     int first = editor->scroll_line;
     int last = first +
-               (editor->height - EDITOR_TOP_HEIGHT - EDITOR_STATUS_HEIGHT) /
+               (editor->height - settings->top_height - settings->status_height) /
                    editor->line_height +
                1;
     int line = 0;
@@ -103,11 +104,12 @@ void editor_render(Editor *editor)
     while (start <= document->length) {
         size_t end = text_line_end(document, start);
         if (line >= first && line <= last) {
-            float y = (float)(EDITOR_TOP_HEIGHT + (line - first) * editor->line_height);
+            float y =
+                (float)(settings->top_height + (line - first) * editor->line_height);
             char number[16];
             snprintf(number, sizeof(number), "%d", line + 1);
             draw_text(editor, number, strlen(number),
-                      EDITOR_GUTTER_WIDTH - EDITOR_PADDING -
+                      settings->gutter_width - settings->padding -
                           strlen(number) * editor->char_width,
                       y, muted);
             if (selection_start != selection_end && selection_start <= end &&
@@ -119,7 +121,7 @@ void editor_render(Editor *editor)
                 if (b == end && selection_end > end)
                     column_b++;
                 fill(editor,
-                     (SDL_FRect){EDITOR_GUTTER_WIDTH + EDITOR_PADDING +
+                     (SDL_FRect){settings->gutter_width + settings->padding +
                                      column_a * editor->char_width,
                                  y, (column_b - column_a) * editor->char_width,
                                  editor->line_height},
@@ -127,10 +129,10 @@ void editor_render(Editor *editor)
             }
             if (is_c_buffer(buffer))
                 draw_highlighted_line(editor, document->text + start, end - start,
-                                      EDITOR_GUTTER_WIDTH + EDITOR_PADDING, y);
+                                      settings->gutter_width + settings->padding, y);
             else
                 draw_text(editor, document->text + start, end - start,
-                          EDITOR_GUTTER_WIDTH + EDITOR_PADDING, y, foreground);
+                          settings->gutter_width + settings->padding, y, foreground);
         }
         if (end == document->length)
             break;
@@ -143,10 +145,11 @@ void editor_render(Editor *editor)
         (SDL_GetTicks() / 500) % 2 == 0) {
         int column = text_column_at(document, document->cursor);
         fill(editor,
-             (SDL_FRect){
-                 EDITOR_GUTTER_WIDTH + EDITOR_PADDING + column * editor->char_width,
-                 EDITOR_TOP_HEIGHT + (cursor_line - first) * editor->line_height, 2,
-                 editor->line_height},
+             (SDL_FRect){settings->gutter_width + settings->padding +
+                             column * editor->char_width,
+                         settings->top_height +
+                             (cursor_line - first) * editor->line_height,
+                         2, editor->line_height},
              accent);
     }
 
@@ -161,8 +164,8 @@ void editor_render(Editor *editor)
                                                   : "text",
                  cursor_line + 1, text_column_at(document, document->cursor) + 1,
                  editor->message);
-    draw_text(editor, status, strlen(status), EDITOR_PADDING,
-              editor->height - EDITOR_STATUS_HEIGHT + 4,
+    draw_text(editor, status, strlen(status), settings->padding,
+              editor->height - settings->status_height + 4,
               editor->minibuffer.mode == MINIBUFFER_INACTIVE ? muted : foreground);
     SDL_RenderPresent(editor->renderer);
 }
