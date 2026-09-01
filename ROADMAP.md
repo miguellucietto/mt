@@ -5,6 +5,9 @@ pequeno, estável e genuinamente extensível. O objetivo não é copiar todo o E
 mas preservar suas melhores ideias: buffers como unidade central, comandos
 nomeados, configuração transparente e extensões desacopladas do núcleo.
 
+As refatorações necessárias para manter esses recursos modulares estão detalhadas
+em [ARCHITECTURE.md](ARCHITECTURE.md).
+
 ## Princípios
 
 - O núcleo deve permanecer pequeno e independente da interface gráfica.
