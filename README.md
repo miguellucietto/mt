@@ -3,8 +3,15 @@
 Editor extensível em C com SDL3, inspirado na arquitetura do Emacs: tudo acontece
 em buffers e as ações são comandos nomeados vindos do núcleo ou de packages.
 
+> **Transparência:** este é um projeto experimental *vibe coded*, desenvolvido com
+> assistência intensiva de IA. O repositório não pretende servir como demonstração
+> de domínio técnico pessoal do autor. Mudanças são revisadas, testadas e registradas
+> para tornar o editor progressivamente mais confiável, mas o software ainda deve ser
+> tratado como experimental.
+
 O planejamento de evolução, TODOs e dívidas técnicas está em
-[ROADMAP.md](ROADMAP.md).
+[ROADMAP.md](ROADMAP.md). O plano de modularização e extensibilidade está em
+[ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Compilar
 

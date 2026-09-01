@@ -18,6 +18,8 @@ acoplamento.
 - Preferir migrações incrementais a reescritas completas.
 - Não adicionar dependências sem registrar a necessidade, o custo e as alternativas.
 - Não expor estruturas internas novas pela API pública.
+- Revisar o `README.md` em toda entrega e atualizá-lo quando o estado, uso,
+  arquitetura, configuração ou limitações do projeto mudarem.
 - Atualizar este documento somente depois que os critérios da etapa forem atendidos.
 
 ## Estado atual
@@ -295,5 +297,5 @@ Uma etapa só pode ser marcada como concluída quando:
 - [ ] Sanitizers relevantes passaram ou uma limitação do ambiente foi registrada.
 - [ ] Testes cobrem o comportamento migrado e pelo menos um caso de erro.
 - [ ] README, ROADMAP e documentação pública foram atualizados quando necessário.
+- [ ] O `README.md` foi explicitamente revisado, mesmo quando não exigiu alteração.
 - [ ] A branch foi publicada e integrada à `main` sem misturar outra etapa.
-
