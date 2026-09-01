@@ -24,6 +24,57 @@ static void test_document(void)
     document_destroy(&document);
 }
 
+static void test_undo_redo(void)
+{
+    Document document;
+    assert(document_init(&document));
+    assert(document_insert(&document, "olá\nlinha dois"));
+    document_mark_clean(&document);
+    assert(!document.dirty);
+
+    document.anchor = 0;
+    document.cursor = strlen("olá");
+    assert(document_insert(&document, "ação"));
+    assert(strcmp(document.text, "ação\nlinha dois") == 0);
+    assert(document.dirty);
+    assert(document_undo(&document));
+    assert(strcmp(document.text, "olá\nlinha dois") == 0);
+    assert(document.cursor == strlen("olá"));
+    assert(document.anchor == 0);
+    assert(!document.dirty);
+    assert(document_redo(&document));
+    assert(strcmp(document.text, "ação\nlinha dois") == 0);
+    assert(document.dirty);
+
+    assert(document_undo(&document));
+    document.cursor = document.anchor = document.length;
+    assert(document_insert(&document, "!"));
+    assert(!document_redo(&document));
+    document_destroy(&document);
+}
+
+static void test_grouped_typing(void)
+{
+    Document document;
+    assert(document_init(&document));
+    assert(document_insert_typed(&document, "a"));
+    assert(document_insert_typed(&document, "ç"));
+    assert(document_insert_typed(&document, "\n"));
+    assert(document_insert_typed(&document, "β"));
+    assert(strcmp(document.text, "aç\nβ") == 0);
+    assert(document_undo(&document));
+    assert(strcmp(document.text, "") == 0);
+    assert(document_redo(&document));
+    assert(strcmp(document.text, "aç\nβ") == 0);
+
+    document_mark_clean(&document);
+    assert(document_insert_typed(&document, "x"));
+    assert(document_undo(&document));
+    assert(strcmp(document.text, "aç\nβ") == 0);
+    assert(!document.dirty);
+    document_destroy(&document);
+}
+
 static void test_keymap(void)
 {
     assert(SDL_GetKeyFromName("x") == SDLK_X);
@@ -65,7 +116,14 @@ static void test_buffers(void)
     assert(output->read_only);
     assert(strcmp(output->document.text, "resultado\n") == 0);
     buffers_next(&buffers);
-    assert(strcmp(buffers_current(&buffers)->name, "*scratch*") == 0);
+    Buffer *scratch = buffers_current(&buffers);
+    assert(strcmp(scratch->name, "*scratch*") == 0);
+    assert(document_insert(&scratch->document, "rascunho"));
+    buffers_next(&buffers);
+    assert(!document_undo(&output->document));
+    buffers_next(&buffers);
+    assert(document_undo(&scratch->document));
+    assert(strcmp(scratch->document.text, "") == 0);
     buffers_destroy(&buffers);
 }
 
@@ -82,6 +140,8 @@ static void test_highlighting(void)
 int main(void)
 {
     test_document();
+    test_undo_redo();
+    test_grouped_typing();
     test_keymap();
     test_buffers();
     test_highlighting();

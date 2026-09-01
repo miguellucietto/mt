@@ -33,7 +33,7 @@ e processos externos não podem bloquear o loop principal da SDL.
 
 ## Prioridade 1 — Fundamentos de edição
 
-- [ ] Implementar histórico de undo/redo por buffer.
+- [x] Implementar histórico de undo/redo por buffer.
 - [ ] Criar kill ring no estilo Emacs, com `kill-region`, `kill-line` e `yank-pop`.
 - [ ] Adicionar apagar palavra anterior/próxima.
 - [ ] Adicionar transposição de caracteres, palavras e linhas.

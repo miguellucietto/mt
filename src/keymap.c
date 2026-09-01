@@ -48,6 +48,8 @@ void keymap_init_default(Keymap *map)
                                    {SDLK_C, SDL_KMOD_CTRL, "copy"},
                                    {SDLK_X, SDL_KMOD_CTRL, "cut"},
                                    {SDLK_V, SDL_KMOD_CTRL, "paste"},
+                                   {SDLK_Z, SDL_KMOD_CTRL, "undo"},
+                                   {SDLK_Z, SDL_KMOD_CTRL | SDL_KMOD_SHIFT, "redo"},
                                    {SDLK_Q, SDL_KMOD_CTRL, "quit"},
                                    {SDLK_X, SDL_KMOD_ALT, "execute-command"},
                                    {SDLK_T, SDL_KMOD_ALT, "cmd"},

@@ -25,6 +25,7 @@ Requer compilador C17, `pkg-config`, SDL3 e SDL3_ttf.
 - `Ctrl+B`: alterna para o próximo buffer
 - `Ctrl+S`: salva o buffer atual
 - `Ctrl+A/C/X/V`: selecionar tudo, copiar, recortar e colar
+- `Ctrl+Z` / `Ctrl+Shift+Z`: desfazer e refazer alterações do buffer atual
 - `Ctrl+←/→`: pula uma palavra
 - `Ctrl+Shift+←/→`: seleciona por palavra
 - `Home/End`: início e fim da linha (`Fn+←/→` em muitos notebooks)

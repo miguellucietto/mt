@@ -89,7 +89,8 @@ Buffer *buffers_open_text(BufferManager *manager, const char *name, BufferType t
     if (!document_insert(&buffer->document, text))
         return NULL;
     buffer->document.cursor = buffer->document.anchor = 0;
-    buffer->document.dirty = false;
+    document_clear_history(&buffer->document);
+    document_mark_clean(&buffer->document);
     buffer->read_only = read_only;
     return buffer;
 }
@@ -133,7 +134,8 @@ bool buffer_refresh_directory(Buffer *buffer, const char *path, char *message,
     }
     free(entries);
     buffer->document.cursor = buffer->document.anchor = 0;
-    buffer->document.dirty = false;
+    document_clear_history(&buffer->document);
+    document_mark_clean(&buffer->document);
     buffer->read_only = true;
     buffer->type = BUFFER_DIRECTORY;
     snprintf(message, message_size, "Dired: Enter abre, g atualiza");

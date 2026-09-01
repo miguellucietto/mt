@@ -374,6 +374,7 @@ void editor_execute(Editor *editor, Command command, bool selecting)
     Buffer *buffer = editor_current_buffer(editor);
     Document *document = &buffer->document;
     bool writable = !buffer->read_only;
+    document_break_undo_group(document);
     switch (command) {
     case COMMAND_SAVE:
         if (writable)
@@ -397,6 +398,14 @@ void editor_execute(Editor *editor, Command command, bool selecting)
         SDL_free(text);
         break;
     }
+    case COMMAND_UNDO:
+        if (writable)
+            document_undo(document);
+        break;
+    case COMMAND_REDO:
+        if (writable)
+            document_redo(document);
+        break;
     case COMMAND_BACKSPACE:
         if (writable && document_has_selection(document))
             document_erase(document, document_selection_start(document),
@@ -724,7 +733,7 @@ static void handle_event(Editor *editor, const SDL_Event *event)
         editor_ensure_cursor_visible(editor);
     } else if (event->type == SDL_EVENT_TEXT_INPUT) {
         if (!buffer->read_only)
-            document_insert(&buffer->document, event->text.text);
+            document_insert_typed(&buffer->document, event->text.text);
         editor_ensure_cursor_visible(editor);
     } else if (event->type == SDL_EVENT_KEY_DOWN) {
         if (buffer->type == BUFFER_DIRECTORY && event->key.key == SDLK_G)
@@ -752,6 +761,7 @@ static void handle_event(Editor *editor, const SDL_Event *event)
             editor->scroll_line = 0;
     } else if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
                event->button.button == SDL_BUTTON_LEFT) {
+        document_break_undo_group(&buffer->document);
         editor_set_cursor(
             editor,
             editor_position_from_mouse(editor, event->button.x, event->button.y),

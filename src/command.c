@@ -11,6 +11,8 @@ static const CommandName COMMANDS[] = {
     {COMMAND_COPY, "copy"},
     {COMMAND_CUT, "cut"},
     {COMMAND_PASTE, "paste"},
+    {COMMAND_UNDO, "undo"},
+    {COMMAND_REDO, "redo"},
     {COMMAND_BACKSPACE, "backspace"},
     {COMMAND_DELETE, "delete"},
     {COMMAND_NEWLINE, "newline"},
