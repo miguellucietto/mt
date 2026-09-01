@@ -181,7 +181,7 @@ recreate unchanged graphical resources every frame.
 - `Document` uses a contiguous array and moves memory during large insertions.
 - Column calculations do not fully model visual Unicode width.
 - The C highlighter is intentionally simple and has no cross-line state.
-- `cmd` uses synchronous `popen`.
+- `cmd` uses synchronous `popen` behind the isolated `process` module.
 - Cursor and scrolling state belong to the editor instead of individual views.
 - The unified command registry still has a fixed maximum capacity.
 - The package API exposes internal structures and has no ABI version.

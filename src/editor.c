@@ -1,6 +1,7 @@
 #include "editor.h"
 #include "editing.h"
 #include "renderer.h"
+#include "shell_controller.h"
 #include "text.h"
 
 #include <ctype.h>
@@ -150,51 +151,6 @@ size_t editor_position_from_mouse(const Editor *editor, float x, float y)
     return text_position_at(&buffer->document, line, column);
 }
 
-static void execute_shell(Editor *editor, const char *command)
-{
-    char shell_command[2048];
-    snprintf(shell_command, sizeof(shell_command), "%s 2>&1", command);
-    FILE *pipe = popen(shell_command, "r");
-    if (!pipe) {
-        snprintf(editor->message, sizeof(editor->message),
-                 "Não foi possível executar o comando");
-        return;
-    }
-    size_t capacity = 4096, length = 0;
-    char *output = malloc(capacity);
-    if (!output) {
-        pclose(pipe);
-        return;
-    }
-    int character;
-    while ((character = fgetc(pipe)) != EOF) {
-        if (length + 2 > capacity) {
-            capacity *= 2;
-            char *larger = realloc(output, capacity);
-            if (!larger)
-                break;
-            output = larger;
-        }
-        output[length++] = (char)character;
-    }
-    int status = pclose(pipe);
-    output[length] = '\0';
-    char contents[256];
-    snprintf(contents, sizeof(contents), "$ %s\n\n", command);
-    Buffer *buffer =
-        buffers_open_text(&editor->buffers, "*cmd*", BUFFER_SHELL, contents, false);
-    if (buffer) {
-        buffer->document.cursor = buffer->document.anchor = buffer->document.length;
-        document_insert(&buffer->document, output);
-        buffer->document.dirty = false;
-        buffer->read_only = true;
-    }
-    free(output);
-    editor->scroll_line = 0;
-    snprintf(editor->message, sizeof(editor->message), "Comando finalizado (%d)",
-             status);
-}
-
 static void show_commands(Editor *editor)
 {
     char contents[16384];
@@ -224,12 +180,6 @@ static void command_execute_command(Editor *editor, bool selecting)
 {
     (void)selecting;
     minibuffer_open(&editor->minibuffer, MINIBUFFER_COMMAND, "M-x ");
-}
-
-static void command_shell(Editor *editor, bool selecting)
-{
-    (void)selecting;
-    minibuffer_open(&editor->minibuffer, MINIBUFFER_SHELL, "Shell command: ");
 }
 
 static void command_next_buffer(Editor *editor, bool selecting)
@@ -262,13 +212,13 @@ static bool register_native_commands(Editor *editor)
         return false;
     if (!dired_register_commands(editor))
         return false;
+    if (!shell_register_commands(editor))
+        return false;
     static const NativeCommand commands[] = {
         {"newline", "Insere uma nova linha ou abre a entrada do Dired", 0,
          command_newline},
         {"execute-command", "Executa um comando pelo nome",
          COMMAND_FLAG_OPENS_MINIBUFFER, command_execute_command},
-        {"cmd", "Executa um comando do shell", COMMAND_FLAG_OPENS_MINIBUFFER,
-         command_shell},
         {"next-buffer", "Alterna para o próximo buffer", 0, command_next_buffer},
         {"list-commands", "Lista todos os comandos registrados", 0,
          command_list_commands},
@@ -317,9 +267,8 @@ static void submit_minibuffer(Editor *editor)
     minibuffer_close(&editor->minibuffer);
     if (mode == MINIBUFFER_COMMAND)
         editor_execute_named(editor, value, false);
-    else if (mode == MINIBUFFER_SHELL)
-        execute_shell(editor, value);
-    else if (!dired_submit(editor, mode, value) && !file_submit(editor, mode, value))
+    else if (!shell_submit(editor, mode, value) && !dired_submit(editor, mode, value) &&
+             !file_submit(editor, mode, value))
         search_submit(editor, mode, value);
     editor->scroll_line = 0;
 }

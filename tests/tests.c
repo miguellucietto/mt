@@ -5,6 +5,8 @@
 #include "editing.h"
 #include "highlight.h"
 #include "keymap.h"
+#include "process.h"
+#include "shell_controller.h"
 #include "text.h"
 #include <assert.h>
 #include <dirent.h>
@@ -151,6 +153,41 @@ static void test_dired_controller(void)
     buffers_destroy(&editor.buffers);
     assert(rmdir(directory_path) == 0);
     assert(rmdir(root) == 0);
+}
+
+static void test_process_execution(void)
+{
+    ProcessResult result;
+    char error[256] = {0};
+    assert(process_run_shell("printf stdout; printf stderr >&2", &result, error,
+                             sizeof(error)));
+    assert(strcmp(result.output, "stdoutstderr") == 0);
+    assert(result.status == 0);
+    process_result_destroy(&result);
+    assert(!result.output && result.status == 0);
+    assert(!process_run_shell(NULL, &result, error, sizeof(error)));
+    assert(error[0]);
+}
+
+static void test_shell_controller(void)
+{
+    Editor editor = {0};
+    command_registry_init(&editor.commands);
+    assert(shell_register_commands(&editor));
+    assert(editor.commands.count == 1);
+    const CommandSpec *command = command_registry_find(&editor.commands, "cmd");
+    assert(command && (command->flags & COMMAND_FLAG_OPENS_MINIBUFFER));
+    assert(buffers_init(&editor.buffers));
+
+    assert(shell_submit(&editor, MINIBUFFER_SHELL, "printf hello"));
+    Buffer *buffer = editor_current_buffer(&editor);
+    assert(buffer && buffer->type == BUFFER_SHELL);
+    assert(strcmp(buffer->document.text, "$ printf hello\n\nhello") == 0);
+    assert(buffer->read_only);
+    assert(!buffer->document.dirty);
+    assert(strcmp(editor.message, "Comando finalizado (0)") == 0);
+    assert(!shell_submit(&editor, MINIBUFFER_COMMAND, "ignored"));
+    buffers_destroy(&editor.buffers);
 }
 
 static void test_search_controller(void)
@@ -447,6 +484,8 @@ int main(void)
     test_search_controller();
     test_file_controller();
     test_dired_controller();
+    test_process_execution();
+    test_shell_controller();
     test_document();
     test_undo_redo();
     test_grouped_typing();

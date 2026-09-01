@@ -74,7 +74,7 @@ Suggested branch: `refactor/editor-controller`
 - [x] Extract search and replacement.
 - [x] Extract file operations and confirmations.
 - [x] Extract Dired from the general event loop.
-- [ ] Separate external-process execution from presentation.
+- [x] Separate external-process execution from presentation.
 - [ ] Keep `editor.c` responsible only for lifecycle and coordination.
 - [x] Add direct tests for extracted controllers.
 

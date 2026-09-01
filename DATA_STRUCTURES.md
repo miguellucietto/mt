@@ -155,6 +155,22 @@ Decision: keep bounded storage during A2. A10 should first introduce session
 ownership and callbacks; input can then become a reusable growable string if real
 path or shell workloads require it.
 
+### Process output
+
+Current representation: a dynamically grown, NUL-terminated byte array owned by
+`ProcessResult` and released through `process_result_destroy`.
+
+Strengths: process execution no longer depends on buffers or presentation, output
+growth preserves all bytes, and ownership is explicit at the module boundary.
+
+Limit: output is currently unbounded and collected synchronously, so a command
+can consume excessive memory or block the event loop.
+
+Decision: retain this representation during the A2 ownership split. Priority 0
+must add a configurable byte limit and asynchronous collection before `cmd` is
+considered safe for arbitrary daily workloads. Do not embed buffer or renderer
+knowledge in the process layer.
+
 ### Search and replace state
 
 Current representation: fixed arrays and scalar fields embedded in `Editor`.

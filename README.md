@@ -162,6 +162,8 @@ stabilization and opaque handles are tracked in `ARCHITECTURE.md`.
 - `editing`: editing and navigation command implementations
 - `dired_controller`: directory navigation and filesystem operations
 - `file_controller`: file opening, saving, and destructive-action confirmations
+- `shell_controller`: shell-command prompts and output-buffer presentation
+- `process`: external-process execution and owned output results
 - `search`: incremental search and query-replace state and behavior
 - `minibuffer`: command and argument input
 - `keymap`: configurable mapping from keys to command names
