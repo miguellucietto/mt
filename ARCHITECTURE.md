@@ -1,272 +1,270 @@
-# Plano de evolução arquitetural do mt
-
-Este documento transforma a auditoria de modularidade do projeto em um backlog
-executável. O objetivo é permitir que aparência, comportamento, modos e extensões
-sejam alterados sem modificar partes não relacionadas do editor.
-
-Ele complementa o [ROADMAP.md](ROADMAP.md): o roadmap descreve funcionalidades;
-este plano descreve a fundação necessária para implementá-las com baixo
-acoplamento.
+# mt architecture evolution plan
+
+This document turns the modularity audit into an executable backlog. Its goal is
+to make appearance, behavior, modes, and extensions changeable without modifying
+unrelated parts of the editor.
 
-## Regras de execução
+It complements [ROADMAP.md](ROADMAP.md): the roadmap describes features, while
+this plan describes the low-coupling foundation required to implement them.
 
-- Executar uma etapa por vez, em branch própria.
-- Não misturar refatoração estrutural com funcionalidade não necessária à etapa.
-- Preservar o comportamento observável, salvo quando o critério de aceite disser o
-  contrário.
-- Manter cada commit compilável, sem warnings e com testes proporcionais ao risco.
-- Preferir migrações incrementais a reescritas completas.
-- Não adicionar dependências sem registrar a necessidade, o custo e as alternativas.
-- Não expor estruturas internas novas pela API pública.
-- Revisar o `README.md` em toda entrega e atualizá-lo quando o estado, uso,
-  arquitetura, configuração ou limitações do projeto mudarem.
-- Atualizar este documento somente depois que os critérios da etapa forem atendidos.
+## Execution rules
 
-## Estado atual
+- Complete one step at a time in its own branch.
+- Do not mix structural refactoring with unrelated features.
+- Preserve observable behavior unless an acceptance criterion explicitly changes it.
+- Keep every commit warning-free, buildable, and covered by risk-appropriate tests.
+- Prefer incremental migrations over complete rewrites.
+- Do not add dependencies without documenting the need, cost, and alternatives.
+- Do not expose new internal structures through the public API.
+- Review `README.md` in every delivery and update it whenever project state, usage,
+  architecture, configuration, or limitations change.
+- Mark checklist items complete only after all acceptance criteria pass.
 
-### Pontos que devem ser preservados
+## Current state
 
-- `Document` já concentra conteúdo, seleção, persistência e undo/redo.
-- O renderer, o highlighter, o keymap e o minibuffer já possuem módulos próprios.
-- Toda ação interativa relevante já tem um nome de comando.
-- A configuração respeita `XDG_CONFIG_HOME`.
-- Há suporte inicial a packages carregados dinamicamente.
-- Existem testes para documentos, UTF-8, buffers, keymap e salvamento seguro.
-
-### Limitações confirmadas
+### Strengths to preserve
 
-- `editor.c` concentra eventos, edição, busca, Dired, shell e coordenação da UI.
-- O registro de comandos já é unificado, mas sua capacidade ainda é fixa.
-- Packages recebem `Editor *` e dependem das estruturas internas do programa.
-- Não existe uma interface formal de major mode.
-- Cores, métricas e quase toda a configuração de fonte são constantes compiladas.
-- Keymaps têm capacidade fixa, dependem de SDL e não suportam escopos ou sequências.
-- Cursor, seleção, rolagem, buffer e janela ainda não formam modelos independentes.
-- Buffers, comandos, packages e keybindings usam arrays de tamanho máximo fixo.
-- O minibuffer exige um novo valor de enum e novas condições para cada fluxo.
-- O núcleo ainda depende de tipos SDL em interfaces que deveriam ser agnósticas à UI.
+- `Document` already owns content, selection, persistence, and undo/redo.
+- Renderer, highlighter, keymap, and minibuffer already have separate modules.
+- Relevant interactive actions already have command names.
+- Configuration follows `XDG_CONFIG_HOME`.
+- Dynamic packages have an initial working implementation.
+- Tests cover documents, UTF-8, buffers, keymaps, and safe saving.
 
-## Ordem de implementação
+### Confirmed limitations
 
-### A1 — Registro unificado de comandos
+- `editor.c` still combines events, editing, search, Dired, shell, and UI coordination.
+- The command registry is unified, but still has fixed capacity.
+- Packages receive `Editor *` and depend on internal structures.
+- There is no formal major-mode interface.
+- Colors, metrics, and most font configuration are compile-time constants.
+- Keymaps have fixed capacity, depend on SDL, and lack scopes and sequences.
+- Cursor, selection, scrolling, buffers, and windows are not independent models.
+- Buffers, commands, packages, and bindings use fixed-size storage.
+- Every minibuffer flow requires enum and submission-handler changes.
+- Core-facing interfaces still expose SDL types.
 
-Branch sugerida: `refactor/command-registry`
-
-- [x] Definir `CommandSpec` com nome, função, descrição e flags.
-- [x] Implementar um único `CommandRegistry` para comandos nativos e de packages.
-- [x] Substituir o enum fechado de comandos por consulta ao registro.
-- [x] Migrar todos os comandos nativos sem alterar seus nomes ou atalhos.
-- [x] Fazer `M-x`, keymap e packages consultarem o mesmo registro.
-- [x] Rejeitar nomes vazios, duplicados ou maiores que o limite documentado.
-- [x] Testar registro, consulta, duplicidade, capacidade e execução.
+## Implementation order
 
-Critérios de aceite:
+### A1 — Unified command registry
 
-- Adicionar um comando nativo não exige editar enum nem `switch` central.
-- Comandos nativos e externos percorrem o mesmo caminho de resolução e execução.
-- Os atalhos e nomes atuais continuam funcionando.
+Suggested branch: `refactor/command-registry`
 
-### A2 — Decomposição do controlador do editor
+- [x] Define `CommandSpec` with name, function, description, and flags.
+- [x] Use one `CommandRegistry` for native and package commands.
+- [x] Replace the closed command enum with registry lookup.
+- [x] Migrate every native command without changing names or shortcuts.
+- [x] Make `M-x`, keymaps, and packages consult the same registry.
+- [x] Reject empty, duplicate, and overlong names.
+- [x] Test registration, lookup, duplication, capacity, and execution.
 
-Branch sugerida: `refactor/editor-controller`
+Acceptance criteria:
 
-- [ ] Separar comandos de edição em módulo próprio.
-- [ ] Separar busca e substituição.
-- [ ] Separar operações de arquivo e confirmações.
-- [ ] Separar Dired do loop geral de eventos.
-- [ ] Separar execução e apresentação de processos externos.
-- [ ] Manter `editor.c` responsável apenas por ciclo de vida e coordenação.
-- [ ] Criar testes diretos para os controladores extraídos.
+- Adding a native command does not require editing an enum or central switch.
+- Native and external commands use the same resolution and execution path.
+- Existing shortcuts and command names continue to work.
 
-Critérios de aceite:
+### A2 — Editor controller decomposition
 
-- O loop SDL não contém implementação de funcionalidades de domínio.
-- Cada controlador possui dependências explícitas e uma responsabilidade principal.
-- Nenhum comportamento existente é removido.
+Suggested branch: `refactor/editor-controller`
 
-### A3 — Configuração tipada
+- [ ] Extract editing commands into their own module.
+- [ ] Extract search and replacement.
+- [ ] Extract file operations and confirmations.
+- [ ] Extract Dired from the general event loop.
+- [ ] Separate external-process execution from presentation.
+- [ ] Keep `editor.c` responsible only for lifecycle and coordination.
+- [ ] Add direct tests for extracted controllers.
 
-Branch sugerida: `feat/settings`
+Acceptance criteria:
 
-- [ ] Definir uma estrutura de settings com defaults centralizados.
-- [ ] Separar descoberta de caminhos, parsing e validação.
-- [ ] Carregar a configuração inteira antes de aplicá-la.
-- [ ] Reportar todos os erros encontrados, com arquivo e linha.
-- [ ] Permitir recarga segura sem reiniciar o editor.
-- [ ] Adicionar settings para Tab, busca, processos e preferências visuais.
-- [ ] Testar defaults, valores válidos, erros e recarga transacional.
+- The SDL loop contains no domain-feature implementation.
+- Each controller has explicit dependencies and one primary responsibility.
+- No existing behavior is removed.
 
-Critérios de aceite:
+### A3 — Typed configuration
 
-- Uma configuração inválida não deixa o editor parcialmente configurado.
-- Novas opções podem ser adicionadas sem espalhar parsing pelo código.
-- O editor sempre possui valores válidos, mesmo sem arquivos de configuração.
+Suggested branch: `feat/settings`
 
-### A4 — Sistema de temas
+- [ ] Define typed settings with centralized defaults.
+- [ ] Separate path discovery, parsing, and validation.
+- [ ] Load the entire configuration before applying it.
+- [ ] Report every error with file and line.
+- [ ] Reload safely without restarting.
+- [ ] Add settings for Tab, search, processes, and visual preferences.
+- [ ] Test defaults, valid values, errors, and transactional reload.
 
-Branch sugerida: `feat/theme-system`
+Acceptance criteria:
 
-- [ ] Definir cores sem depender de `SDL_Color` no modelo público.
-- [ ] Criar papéis semânticos: fundo, painel, texto, texto secundário, seleção,
-      cursor, números de linha e diagnósticos.
-- [ ] Criar papéis semânticos para syntax highlighting.
-- [ ] Mover todas as cores fixas para um tema padrão.
-- [ ] Carregar `~/.config/mt/theme.conf` com validação completa.
-- [ ] Permitir recarregar o tema em tempo de execução.
-- [ ] Testar parsing, fallback e temas incompletos ou inválidos.
+- Invalid configuration never leaves partially applied state.
+- New options do not spread parsing logic across the codebase.
+- The editor always has valid values, even without configuration files.
 
-Critérios de aceite:
+### A4 — Theme system
 
-- O renderer e os highlighters não contêm cores literais de apresentação.
-- Trocar o tema não exige recompilar o editor.
-- Um tema inválido não destrói o tema ativo.
+Suggested branch: `feat/theme-system`
 
-### A5 — Fonte e métricas configuráveis
+- [ ] Define colors without exposing `SDL_Color` in the public model.
+- [ ] Add semantic roles for background, panels, text, secondary text, selection,
+      cursor, line numbers, and diagnostics.
+- [ ] Add semantic roles for syntax highlighting.
+- [ ] Move all hard-coded colors into the default theme.
+- [ ] Load and fully validate `~/.config/mt/theme.conf`.
+- [ ] Reload themes at runtime.
+- [ ] Test parsing, fallback, and invalid or incomplete themes.
 
-Branch sugerida: `feat/font-settings`
+Acceptance criteria:
 
-- [ ] Configurar família ou caminho da fonte.
-- [ ] Configurar tamanho, line height, padding e largura do gutter.
-- [ ] Manter `MT_FONT` como override compatível ou documentar sua substituição.
-- [ ] Reabrir a fonte de forma transacional durante uma recarga.
-- [ ] Recalcular métricas, viewport e posição do cursor após mudanças.
-- [ ] Preparar escala HiDPI sem assumir pixels físicos fixos.
-- [ ] Testar validação e fallback de settings, isolando o máximo possível da SDL.
+- Renderer and highlighters contain no presentation color literals.
+- Changing themes requires no rebuild.
+- An invalid theme cannot destroy the active theme.
 
-Critérios de aceite:
+### A5 — Configurable fonts and metrics
 
-- Nenhuma métrica visual configurável permanece como macro em `editor.h`.
-- Falha ao abrir uma fonte nova mantém a fonte anterior ativa.
-- Alterações visuais não afetam o modelo de documento.
+Suggested branch: `feat/font-settings`
 
-### A6 — Interface formal de major mode
+- [ ] Configure font family or path.
+- [ ] Configure size, line height, padding, and gutter width.
+- [ ] Preserve `MT_FONT` as a compatible override or document its replacement.
+- [ ] Reopen fonts transactionally during reload.
+- [ ] Recalculate metrics, viewport, and cursor after changes.
+- [ ] Prepare HiDPI scaling without assuming fixed physical pixels.
+- [ ] Test validation and fallback with minimal SDL coupling.
 
-Branch sugerida: `refactor/mode-interface`
+Acceptance criteria:
 
-- [ ] Definir `MajorMode` com nome, detecção, highlighting e indentação.
-- [ ] Permitir detecção por extensão, nome de arquivo e conteúdo.
-- [ ] Associar cada buffer a uma instância de modo.
-- [ ] Mover o modo C para um módulo registrado.
-- [ ] Criar modo fundamental/texto como fallback.
-- [ ] Suportar comandos e keymap locais do modo.
-- [ ] Remover detecção de `.c` e `.h` do renderer.
-- [ ] Remover testes diretos de tipo de buffer do caminho geral de edição.
+- No configurable visual metric remains a macro in `editor.h`.
+- A failed font change keeps the previous font active.
+- Visual changes do not affect the document model.
 
-Critérios de aceite:
+### A6 — Formal major-mode interface
 
-- Adicionar um modo não exige modificar o renderer nem o loop SDL.
-- Um package pode futuramente registrar um modo pela API estável.
-- C e texto simples continuam com o comportamento atual.
+Suggested branch: `refactor/mode-interface`
 
-### A7 — Separação de Document, Buffer, View e Window
+- [ ] Define `MajorMode` with name, detection, highlighting, and indentation.
+- [ ] Detect modes by extension, file name, and content.
+- [ ] Associate each buffer with a mode instance.
+- [ ] Move C mode into a registered module.
+- [ ] Add fundamental/plain-text fallback mode.
+- [ ] Support mode-local commands and keymaps.
+- [ ] Remove `.c` and `.h` detection from the renderer.
+- [ ] Remove direct buffer-type checks from general editing paths.
 
-Branch sugerida: `refactor/view-model`
+Acceptance criteria:
 
-- [ ] Manter texto, arquivo e undo/redo em `Document`.
-- [ ] Manter nome, modo e variáveis locais em `Buffer`.
-- [ ] Mover cursor, seleção, scroll e coluna desejada para `View`.
-- [ ] Introduzir `Window` como proprietário da geometria e da View exibida.
-- [ ] Permitir duas Views do mesmo Buffer com posições independentes.
-- [ ] Preparar divisão de janelas sem implementá-la nesta refatoração.
-- [ ] Testar independência de cursor, seleção e scroll entre Views.
+- Adding a mode does not require renderer or SDL-loop changes.
+- The stable API can later expose mode registration to packages.
+- C and plain-text behavior remain compatible.
 
-Critérios de aceite:
+### A7 — Separate Document, Buffer, View, and Window
 
-- Alternar ou duplicar Views não altera a posição das demais.
-- `Document` não contém estado específico de apresentação.
-- O renderer recebe uma View explícita.
+Suggested branch: `refactor/view-model`
 
-### A8 — API pública opaca e ABI versionada
+- [ ] Keep text, files, and undo/redo in `Document`.
+- [ ] Keep names, modes, and local variables in `Buffer`.
+- [ ] Move cursor, selection, scrolling, and desired column into `View`.
+- [ ] Introduce `Window` as owner of geometry and displayed View.
+- [ ] Allow two Views of one Buffer with independent positions.
+- [ ] Prepare window splitting without implementing it in this refactor.
+- [ ] Test independent cursor, selection, and scrolling state.
 
-Branch sugerida: `refactor/public-api`
+Acceptance criteria:
 
-- [ ] Impedir que packages acessem os campos de `Editor` diretamente.
-- [ ] Expor handles opacos para editor, buffer, documento e registro.
-- [ ] Oferecer funções pequenas para mensagens, buffers, texto e comandos.
-- [ ] Adicionar versão da ABI e negociação durante `mt_package_init`.
-- [ ] Definir regras de propriedade e duração de ponteiros.
-- [ ] Adicionar metadados mínimos de package.
-- [ ] Migrar o package de exemplo para usar somente a API pública.
-- [ ] Testar compatibilidade e rejeição de ABI incompatível.
+- Switching or duplicating Views does not modify other Views.
+- `Document` contains no presentation-specific state.
+- Renderer receives an explicit View.
 
-Critérios de aceite:
+### A8 — Opaque public API and versioned ABI
 
-- Alterar campos internos de `Editor` não exige recompilar packages compatíveis.
-- O SDK não inclui headers internos.
-- Falhas de carregamento informam package, causa e versão esperada.
+Suggested branch: `refactor/public-api`
 
-### A9 — Keymaps extensíveis e independentes da SDL
+- [ ] Prevent packages from accessing `Editor` fields directly.
+- [ ] Expose opaque handles for editor, buffer, document, and registry.
+- [ ] Provide small APIs for messages, buffers, text, and commands.
+- [ ] Add ABI version negotiation during `mt_package_init`.
+- [ ] Define ownership and pointer-lifetime rules.
+- [ ] Add minimum package metadata.
+- [ ] Migrate the example package to public API only.
+- [ ] Test compatibility and incompatible-ABI rejection.
 
-Branch sugerida: `refactor/keymap-system`
+Acceptance criteria:
 
-- [ ] Criar representação própria para teclas e modificadores.
-- [ ] Isolar a conversão SDL na camada de plataforma.
-- [ ] Substituir o array fixo por armazenamento dinâmico.
-- [ ] Permitir remover bindings explicitamente.
-- [ ] Aplicar arquivos de keymap de forma transacional.
-- [ ] Adicionar keymap global, local de modo e transitório.
-- [ ] Adicionar sequências de teclas.
-- [ ] Implementar recarga por comando.
-- [ ] Testar precedência, remoção, sequências, erros e recarga.
+- Internal `Editor` field changes do not require rebuilding compatible packages.
+- The SDK includes no internal headers.
+- Loading failures report package, reason, and expected version.
 
-Critérios de aceite:
+### A9 — Extensible, SDL-independent keymaps
 
-- Keymaps podem ser testados sem inicializar SDL.
-- Um binding local não precisa alterar o keymap global.
-- Arquivo inválido não modifica o keymap ativo.
+Suggested branch: `refactor/keymap-system`
 
-### A10 — Minibuffer orientado a sessões
+- [ ] Define editor-owned key and modifier types.
+- [ ] Isolate SDL conversion in the platform layer.
+- [ ] Replace fixed storage with dynamic storage.
+- [ ] Explicitly remove bindings.
+- [ ] Apply keymap files transactionally.
+- [ ] Support global, mode-local, and transient keymaps.
+- [ ] Support key sequences.
+- [ ] Reload through a command.
+- [ ] Test precedence, removal, sequences, errors, and reload.
 
-Branch sugerida: `refactor/minibuffer-session`
+Acceptance criteria:
 
-- [ ] Substituir fluxos codificados em enum por uma sessão com callbacks.
-- [ ] Definir callbacks de atualização, confirmação e cancelamento.
-- [ ] Adicionar uma fonte opcional de completion.
-- [ ] Separar histórico por categoria.
-- [ ] Permitir validação antes de fechar o prompt.
-- [ ] Migrar busca, `M-x`, abertura de arquivos e confirmações.
-- [ ] Testar sessões sem loop SDL.
+- Keymaps are testable without SDL initialization.
+- Local bindings do not modify the global keymap.
+- Invalid files cannot modify the active keymap.
 
-Critérios de aceite:
+### A10 — Session-oriented minibuffer
 
-- Criar um novo prompt não exige modificar `submit_minibuffer`.
-- Cancelamento e confirmação possuem comportamento uniforme.
-- Completion e histórico não dependem de um modo específico do minibuffer.
+Suggested branch: `refactor/minibuffer-session`
 
-### A11 — Coleções dinâmicas e limites configuráveis
+- [ ] Replace enum-coded flows with callback-based sessions.
+- [ ] Define update, confirmation, and cancellation callbacks.
+- [ ] Add an optional completion provider.
+- [ ] Separate history by category.
+- [ ] Validate input before closing a prompt.
+- [ ] Migrate search, `M-x`, file opening, and confirmations.
+- [ ] Test sessions without the SDL loop.
 
-Branch sugerida: `refactor/dynamic-collections`
+Acceptance criteria:
 
-- [ ] Substituir limites fixos de buffers por vetor dinâmico.
-- [ ] Substituir limites fixos de comandos e packages.
-- [ ] Definir limites de segurança configuráveis onde forem necessários.
-- [ ] Tratar falhas de alocação sem perder o estado anterior.
-- [ ] Testar crescimento, limites e falhas previsíveis.
+- A new prompt does not require changing `submit_minibuffer`.
+- Confirmation and cancellation are consistent.
+- Completion and history are independent from a specific minibuffer mode.
 
-Critérios de aceite:
+### A11 — Dynamic collections and configurable limits
 
-- O número de buffers e comandos não depende de macros de capacidade.
-- Crescimento preserva ponteiros ou documenta claramente sua invalidação.
-- Limites de segurança produzem mensagens acionáveis.
+Suggested branch: `refactor/dynamic-collections`
 
-### A12 — Núcleo testável sem vídeo
+- [ ] Replace fixed buffer storage with a dynamic vector.
+- [ ] Replace fixed command and package storage.
+- [ ] Define configurable safety limits where appropriate.
+- [ ] Handle allocation failure without losing prior state.
+- [ ] Test growth, limits, and predictable failures.
 
-Branch sugerida: `refactor/core-library`
+Acceptance criteria:
 
-- [ ] Separar biblioteca principal do executável SDL.
-- [ ] Remover tipos SDL das interfaces de documento, comandos, modos e keymaps.
-- [ ] Criar uma camada de plataforma para clipboard, eventos, relógio e processos.
-- [ ] Testar todos os comandos de edição sem inicializar vídeo.
-- [ ] Adicionar targets oficiais para ASan e UBSan.
-- [ ] Preparar CI para build, testes, formatação e sanitizers.
+- Buffer and command counts do not depend on capacity macros.
+- Growth preserves pointers or clearly documents invalidation.
+- Safety limits produce actionable messages.
 
-Critérios de aceite:
+### A12 — Core testable without video
 
-- A maior parte da suíte roda sem SDL vídeo ou fonte instalada.
-- O executável é uma composição do core com o frontend SDL.
-- Dependências de plataforma ficam em módulos explicitamente identificados.
+Suggested branch: `refactor/core-library`
 
-## Dependências entre etapas
+- [ ] Separate the core library from the SDL executable.
+- [ ] Remove SDL types from document, command, mode, and keymap interfaces.
+- [ ] Add a platform layer for clipboard, events, clocks, and processes.
+- [ ] Test every editing command without initializing video.
+- [ ] Add official ASan and UBSan targets.
+- [ ] Add CI for builds, tests, formatting, and sanitizers.
+
+Acceptance criteria:
+
+- Most tests run without SDL video or installed fonts.
+- The executable composes the core with the SDL frontend.
+- Platform dependencies live in explicitly identified modules.
+
+## Dependencies
 
 ```text
 A1 Command Registry
@@ -280,22 +278,22 @@ A3 Settings
  └── A9 Keymaps
 
 A6 Major Modes ── A9 Keymaps
-A7 View Model ─── futuras divisões de janela
-A8 Public API ─── registro externo de modos, hooks e renderizadores
-A10 Minibuffer ── completion, históricos e descoberta de comandos
-A11 Collections ─ escalabilidade de buffers, comandos e packages
-A12 Core Library ─ testes amplos, CI e novos frontends
+A7 View Model ─── future window splitting
+A8 Public API ─── external modes, hooks, and renderers
+A10 Minibuffer ── completion, histories, and command discovery
+A11 Collections ─ buffer, command, and package scalability
+A12 Core Library ─ broad tests, CI, and alternative frontends
 ```
 
-## Definição geral de pronto
+## General definition of done
 
-Uma etapa só pode ser marcada como concluída quando:
+A step is complete only when:
 
-- [ ] Todos os critérios de aceite específicos foram atendidos.
-- [ ] `make`, `make test` e `make format-check` passaram sem warnings.
-- [ ] `git diff --check` passou.
-- [ ] Sanitizers relevantes passaram ou uma limitação do ambiente foi registrada.
-- [ ] Testes cobrem o comportamento migrado e pelo menos um caso de erro.
-- [ ] README, ROADMAP e documentação pública foram atualizados quando necessário.
-- [ ] O `README.md` foi explicitamente revisado, mesmo quando não exigiu alteração.
-- [ ] A branch foi publicada e integrada à `main` sem misturar outra etapa.
+- [ ] Every step-specific acceptance criterion passes.
+- [ ] `make`, `make test`, and `make format-check` pass without warnings.
+- [ ] `git diff --check` passes.
+- [ ] Relevant sanitizers pass, or an environment limitation is documented.
+- [ ] Tests cover migrated behavior and at least one failure case.
+- [ ] README, roadmap, and public documentation are updated when necessary.
+- [ ] `README.md` was explicitly reviewed even when no edit was required.
+- [ ] The branch was published and integrated into `main` without another step.

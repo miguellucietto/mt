@@ -1,104 +1,107 @@
 # mt
 
-Editor extensível em C com SDL3, inspirado na arquitetura do Emacs: tudo acontece
-em buffers e as ações são comandos nomeados vindos do núcleo ou de packages.
+An extensible C editor built with SDL3 and inspired by Emacs architecture:
+everything happens in buffers, and actions are named commands provided by the
+core or by packages.
 
-> **Transparência:** este é um projeto experimental *vibe coded*, desenvolvido com
-> assistência intensiva de IA. O repositório não pretende servir como demonstração
-> de domínio técnico pessoal do autor. Mudanças são revisadas, testadas e registradas
-> para tornar o editor progressivamente mais confiável, mas o software ainda deve ser
-> tratado como experimental.
+> **Transparency:** this is an experimental, *vibe-coded* project developed with
+> intensive AI assistance. The repository is not intended as evidence of the
+> author's personal technical expertise. Changes are reviewed, tested, and
+> documented to make the editor progressively more reliable, but the software
+> should still be treated as experimental.
 
-O planejamento de evolução, TODOs e dívidas técnicas está em
-[ROADMAP.md](ROADMAP.md). O plano de modularização e extensibilidade está em
+Feature planning, TODOs, and known technical debt are tracked in
+[ROADMAP.md](ROADMAP.md). The modularity and extensibility plan is tracked in
 [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## Compilar
+## Building
 
 ```sh
 make
 make test
-./mt arquivo.c
+./mt file.c
 ```
 
-Requer compilador C17, `pkg-config`, SDL3 e SDL3_ttf.
+The project requires a C17 compiler, `pkg-config`, SDL3, and SDL3_ttf.
 
-## Uso
+## Usage
 
-- `Alt+X`: abre o minibuffer `M-x` e executa um comando pelo nome
-- `Alt+T`: abre diretamente o prompt do comando `cmd`
-- `Ctrl+O`: abre arquivo ou diretório
-- `Ctrl+D`: abre um diretório no dired
-- `Ctrl+B`: alterna para o próximo buffer
-- `Ctrl+S`: salva o buffer atual
-- `Ctrl+A/C/X/V`: selecionar tudo, copiar, recortar e colar
-- `Ctrl+Z` / `Ctrl+Shift+Z`: desfazer e refazer alterações do buffer atual
-- `Ctrl+←/→`: pula uma palavra
-- `Ctrl+Shift+←/→`: seleciona por palavra
-- `Home/End`: início e fim da linha (`Fn+←/→` em muitos notebooks)
-- `Ctrl+Home/End`: início e fim do buffer
-- `Ctrl+K`: apaga do cursor até o fim da linha; no fim, remove a quebra
-- `Ctrl+F`: busca incremental
-- Setas, Home, End, Page Up/Down e Shift para selecionar
+- `Alt+X`: open the `M-x` minibuffer and run a command by name
+- `Alt+T`: open the `cmd` prompt directly
+- `Ctrl+O`: open a file or directory
+- `Ctrl+D`: open a directory in Dired
+- `Ctrl+B`: switch to the next buffer
+- `Ctrl+S`: save the current buffer
+- `Ctrl+A/C/X/V`: select all, copy, cut, and paste
+- `Ctrl+Z` / `Ctrl+Shift+Z`: undo and redo changes in the current buffer
+- `Ctrl+Left/Right`: move by word
+- `Ctrl+Shift+Left/Right`: select by word
+- `Home/End`: move to the start or end of the line
+- `Ctrl+Home/End`: move to the start or end of the buffer
+- `Ctrl+K`: delete from the cursor to the end of the line; at line end, remove
+  the newline
+- `Ctrl+F`: start incremental search
+- Arrow keys, Home, End, Page Up/Down, and Shift extend or move the selection
 
-Comandos importantes via `M-x`:
+Important `M-x` commands:
 
-- `cmd`: solicita um comando de terminal e mostra stdout/stderr em `*cmd*`
-- `find-file`: abre um caminho em outro buffer
-- `dired`: abre o navegador de diretórios
-- `next-buffer`: alterna entre os buffers
-- `save`, `copy`, `paste`, `select-all` e `quit`
-- `isearch` e `query-replace`
+- `cmd`: prompt for a shell command and display stdout/stderr in `*cmd*`
+- `find-file`: open a path in another buffer
+- `dired`: open the directory browser
+- `next-buffer`: switch between buffers
+- `save`, `copy`, `paste`, `select-all`, and `quit`
+- `isearch` and `query-replace`
 
-O minibuffer usa `Enter` para confirmar e `Esc` para cancelar.
-Pressionar `Enter` em um `M-x` vazio abre o buffer `*commands*` com todos os
-comandos nativos e os comandos fornecidos pelos packages.
+Press `Enter` to submit the minibuffer and `Esc` to cancel it. Submitting an
+empty `M-x` opens `*commands*`, which lists every registered native and package
+command with its description.
 
-Ao sair com alterações não salvas, ou ao abrir um arquivo que substituiria um
-buffer modificado de mesmo nome, o editor exige a confirmação textual `yes`.
+When quitting with unsaved changes, or when opening a file that would replace a
+modified buffer with the same name, the editor requires the exact confirmation
+text `yes`.
 
-## Busca e substituição
+## Search and replace
 
-`Ctrl+F` ou `M-x isearch` abre a busca incremental. O resultado é atualizado
-enquanto você digita. `Ctrl+F` novamente procura a próxima ocorrência, `Enter`
-aceita o resultado e `Esc` cancela e restaura a posição inicial.
+`Ctrl+F` or `M-x isearch` starts incremental search. Results update while text is
+entered. Press `Ctrl+F` again for the next occurrence, `Enter` to accept, or
+`Esc` to cancel and restore the original cursor position.
 
-`M-x query-replace` pede primeiro o texto procurado e depois a substituição. Em
-cada ocorrência:
+`M-x query-replace` asks for the search text and then the replacement. At each
+match:
 
-- `y`: substitui esta ocorrência;
-- `n`: pula esta ocorrência;
-- `!`: substitui todas as ocorrências restantes;
-- `q` ou `Esc`: encerra.
+- `y`: replace this match
+- `n`: skip this match
+- `!`: replace all remaining matches
+- `q` or `Esc`: stop
 
-Em teclados nos quais `Fn` é tratado pelo firmware, SDL recebe diretamente
-`Home`, `End`, `Page Up` ou `Page Down`; esses eventos já estão mapeados.
+On keyboards where `Fn` is handled by firmware, SDL receives Home, End, Page Up,
+or Page Down directly; these events are already mapped.
 
 ## Dired
 
-Execute `M-x dired`, informe um diretório e pressione Enter. Dentro do buffer:
+Run `M-x dired`, enter a directory, and press Enter. Inside the buffer:
 
-- setas movem o cursor;
-- `Enter` abre o arquivo ou entra no diretório;
-- `g` atualiza a listagem;
-- `Ctrl+B` volta para outro buffer.
+- Arrow keys move the cursor.
+- `Enter` opens a file or enters a directory.
+- `g` refreshes the listing.
+- `Ctrl+B` switches back to another buffer.
 
-Operações de gerenciamento disponíveis via `M-x` dentro do Dired:
+File-management commands available through `M-x` while in Dired:
 
 - `dired-create-file`
 - `dired-create-directory`
-- `dired-rename` — atua sobre a entrada sob o cursor
-- `dired-delete` — exige digitar `yes` antes de excluir
+- `dired-rename` — operates on the entry under the cursor
+- `dired-delete` — requires typing `yes` before deletion
 
-## Highlighting de C
+## C highlighting
 
-Buffers `.c` e `.h` destacam palavras-chave, strings, caracteres, números,
-comentários de linha e diretivas do preprocessador. O highlighter é independente
-do renderer para facilitar a inclusão de outras linguagens.
+Buffers for `.c` and `.h` files highlight keywords, strings, character literals,
+numbers, line comments, and preprocessor directives. The highlighter is
+independent from the renderer so other languages can be added later.
 
-## Configuração
+## Configuration
 
-No primeiro início o mt cria automaticamente:
+On first launch, mt creates:
 
 ```text
 ~/.config/mt/
@@ -106,13 +109,13 @@ No primeiro início o mt cria automaticamente:
 └── packages/
 ```
 
-Se `XDG_CONFIG_HOME` estiver definido, ele é usado no lugar de `~/.config`. Não é
-mais necessário definir `MT_KEYMAP`.
+When `XDG_CONFIG_HOME` is set, it is used instead of `~/.config`. The legacy
+`MT_KEYMAP` variable is no longer required.
 
-O formato de `keymap.conf` é:
+The `keymap.conf` format is:
 
 ```text
-# tecla = comando
+# key = command
 alt+x = execute-command
 ctrl+o = find-file
 ctrl+d = dired
@@ -120,22 +123,21 @@ ctrl+b = next-buffer
 alt+t = cmd
 ```
 
-Modificadores aceitos: `ctrl`, `shift`, `alt` e `super`. O nome pode apontar para
-um comando nativo ou para um comando registrado por package.
+Supported modifiers are `ctrl`, `shift`, `alt`, and `super`. A binding may refer
+to a native command or a command registered by a package.
 
 ## Packages
 
-Packages são bibliotecas compartilhadas `.so` colocadas em
-`~/.config/mt/packages`. Cada package exporta:
+Packages are `.so` shared libraries placed in `~/.config/mt/packages`. Each
+package exports:
 
 ```c
 bool mt_package_init(MtAPI *api);
 ```
 
-O package usa `api->register_command` para expor ao mesmo registro usado pelos
-comandos nativos o nome, a descrição, as flags e a função do comando. Assim, o
-comando fica disponível no `M-x`, na listagem de comandos e no keymap. Há um
-exemplo em `examples/hello-package.c`:
+`api->register_command` adds a command's name, description, flags, and function
+to the same registry used by native commands. The command then becomes available
+to `M-x`, the command listing, and keymaps. See `examples/hello-package.c`:
 
 ```sh
 make package-example
@@ -143,19 +145,22 @@ cp build/hello-package.so ~/.config/mt/packages/
 ./mt
 ```
 
-Então execute `M-x hello`. O executável usa `-rdynamic`, permitindo que packages
-usem a API pública declarada em `include/`.
+Then run `M-x hello`. The executable uses `-rdynamic`, allowing packages to use
+the public API declared under `include/`.
 
-## Arquitetura
+The package API is still experimental and exposes internal structures. ABI
+stabilization and opaque handles are tracked in `ARCHITECTURE.md`.
 
-- `buffer`: ciclo de vida e troca de buffers, arquivos e diretórios
-- `command`: registro e resolução unificados de comandos nativos e de packages
-- `document`: armazenamento mutável, seleção e persistência
-- `text`: navegação UTF-8 e coordenadas de texto
-- `editor`: eventos e execução dos comandos nativos
-- `minibuffer`: entrada de comandos e argumentos
-- `keymap`: tradução configurável de teclas para nomes de comandos
-- `package`: registro de comandos e carregamento dinâmico com `dlopen`
-- `highlight`: análise léxica independente da interface
-- `renderer`: apresentação SDL dos buffers e do minibuffer
-- `config`: criação e descoberta da configuração XDG
+## Architecture
+
+- `buffer`: buffer lifecycle, switching, files, and directories
+- `command`: unified registration and lookup for native and package commands
+- `document`: mutable text storage, selection, undo/redo, and persistence
+- `text`: UTF-8 navigation and text coordinates
+- `editor`: event handling and command coordination
+- `minibuffer`: command and argument input
+- `keymap`: configurable mapping from keys to command names
+- `package`: dynamic package loading with `dlopen`
+- `highlight`: lexical analysis independent from rendering
+- `renderer`: SDL presentation for buffers and the minibuffer
+- `config`: XDG configuration discovery and creation

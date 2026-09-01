@@ -1,228 +1,220 @@
-# Roadmap do mt
+# mt roadmap
 
-Este documento registra os próximos passos para transformar o `mt` em um editor
-pequeno, estável e genuinamente extensível. O objetivo não é copiar todo o Emacs,
-mas preservar suas melhores ideias: buffers como unidade central, comandos
-nomeados, configuração transparente e extensões desacopladas do núcleo.
+This document tracks the work required to turn `mt` into a small, stable, and
+genuinely extensible editor. The goal is not to reproduce all of Emacs, but to
+preserve its strongest ideas: buffers as the central unit, named commands,
+transparent configuration, and extensions decoupled from the core.
 
-As refatorações necessárias para manter esses recursos modulares estão detalhadas
-em [ARCHITECTURE.md](ARCHITECTURE.md).
+The structural work required to keep these features modular is detailed in
+[ARCHITECTURE.md](ARCHITECTURE.md).
 
-## Princípios
+## Principles
 
-- O núcleo deve permanecer pequeno e independente da interface gráfica.
-- Toda ação interativa relevante deve ser um comando nomeado.
-- Comandos nativos e comandos de packages devem funcionar da mesma forma.
-- Buffers especiais não devem precisar de exceções espalhadas pelo editor.
-- Operações que podem perder dados precisam de confirmação ou recuperação.
-- Recursos de texto devem funcionar corretamente com UTF-8.
-- Cada mudança deve compilar sem warnings e incluir testes proporcionais ao risco.
+- Keep the core small and independent from the graphical interface.
+- Every relevant interactive action must be a named command.
+- Native and package commands must behave the same way.
+- Special buffers must not require scattered exceptions throughout the editor.
+- Operations that can lose data require confirmation or recovery.
+- Text features must handle UTF-8 correctly.
+- Every change must compile without warnings and include risk-appropriate tests.
 
-## Prioridade 0 — Confiabilidade e segurança
+## Priority 0 — Reliability and safety
 
-- [x] Avisar sobre buffers modificados antes de sair.
-- [x] Avisar antes de fechar ou substituir um buffer modificado.
-- [x] Implementar salvamento atômico usando arquivo temporário e `rename`.
-- [x] Preservar permissões do arquivo durante o salvamento.
-- [ ] Detectar alterações externas no arquivo aberto.
-- [ ] Exibir erros completos de abertura, leitura e escrita no buffer `*messages*`.
-- [ ] Impedir que o Dired apague diretórios não vazios sem confirmação explícita.
-- [ ] Tornar a execução de `cmd` assíncrona para não congelar a interface.
-- [ ] Adicionar limite configurável para a saída de processos muito grandes.
-- [ ] Tratar arquivos binários e bytes UTF-8 inválidos sem corromper o buffer.
+- [x] Warn about modified buffers before quitting.
+- [x] Warn before closing or replacing a modified buffer.
+- [x] Implement atomic saving through a temporary file and `rename`.
+- [x] Preserve file permissions while saving.
+- [ ] Detect external changes to an open file.
+- [ ] Report complete open, read, and write errors in `*messages*`.
+- [ ] Prevent Dired from deleting non-empty directories without explicit
+      confirmation.
+- [ ] Run `cmd` asynchronously so it cannot freeze the interface.
+- [ ] Add a configurable limit for very large process output.
+- [ ] Handle binary files and invalid UTF-8 bytes without corrupting the buffer.
 
-Critério de conclusão: nenhum fluxo normal pode perder alterações silenciosamente
-e processos externos não podem bloquear o loop principal da SDL.
+Completion criterion: normal workflows cannot silently lose changes, and
+external processes cannot block the SDL main loop.
 
-## Prioridade 1 — Fundamentos de edição
+## Priority 1 — Editing foundations
 
-- [x] Implementar histórico de undo/redo por buffer.
-- [ ] Criar kill ring no estilo Emacs, com `kill-region`, `kill-line` e `yank-pop`.
-- [ ] Adicionar apagar palavra anterior/próxima.
-- [ ] Adicionar transposição de caracteres, palavras e linhas.
-- [ ] Implementar duplicar, mover e selecionar linha.
-- [ ] Implementar indentação e desindentação de região.
-- [ ] Detectar e preservar LF e CRLF.
-- [ ] Permitir configurar largura e comportamento de Tab.
-- [ ] Adicionar autoindentação básica ao pressionar Enter.
-- [ ] Implementar busca reversa e histórico de buscas.
-- [ ] Tornar `query-replace` sensível ou insensível a maiúsculas sob configuração.
-- [ ] Adicionar expressões regulares para busca e substituição.
-- [ ] Manter coluna visual corretamente com tabs, Unicode largo e combining marks.
+- [x] Implement per-buffer undo/redo history.
+- [ ] Add an Emacs-style kill ring with `kill-region`, `kill-line`, and `yank-pop`.
+- [ ] Delete the previous or next word.
+- [ ] Transpose characters, words, and lines.
+- [ ] Duplicate, move, and select lines.
+- [ ] Indent and unindent regions.
+- [ ] Detect and preserve LF and CRLF line endings.
+- [ ] Configure Tab width and behavior.
+- [ ] Add basic automatic indentation on Enter.
+- [ ] Add reverse search and search history.
+- [ ] Make `query-replace` optionally case-sensitive.
+- [ ] Add regular-expression search and replacement.
+- [ ] Preserve visual columns across tabs, wide Unicode, and combining marks.
 
-Critério de conclusão: editar código e texto por longos períodos deve ser seguro,
-previsível e reversível.
+Completion criterion: long editing sessions are safe, predictable, and
+reversible.
 
-## Prioridade 2 — Buffers e janelas
+## Priority 2 — Buffers and windows
 
-- [ ] Implementar `list-buffers` com seleção, fechamento e indicação de modificação.
-- [ ] Implementar `kill-buffer` e `rename-buffer`.
-- [ ] Permitir vários buffers com o mesmo nome usando nomes únicos automáticos.
-- [ ] Separar `Buffer`, `View` e `Window` para permitir duas visualizações do mesmo
-      buffer.
-- [ ] Dividir a janela horizontal e verticalmente.
-- [ ] Redimensionar, alternar e fechar divisões.
-- [ ] Manter cursor e rolagem por visualização, não globalmente.
-- [ ] Criar buffers especiais por meio de uma interface de modo, sem testes diretos
-      de `BufferType` no loop de eventos.
-- [ ] Implementar buffer `*scratch*` persistente e configurável.
-- [ ] Persistir sessão: arquivos abertos, posições, divisões e buffer ativo.
+- [ ] Implement `list-buffers` with selection, closing, and modified indicators.
+- [ ] Implement `kill-buffer` and `rename-buffer`.
+- [ ] Allow duplicate buffer names through automatic unique naming.
+- [ ] Separate `Buffer`, `View`, and `Window` so one buffer can have multiple views.
+- [ ] Split windows horizontally and vertically.
+- [ ] Resize, switch, and close splits.
+- [ ] Store cursor and scrolling per view instead of globally.
+- [ ] Create special buffers through a mode interface without direct `BufferType`
+      checks in the event loop.
+- [ ] Add a persistent and configurable `*scratch*` buffer.
+- [ ] Persist sessions: open files, positions, splits, and active buffer.
 
-Critério de conclusão: o usuário pode organizar vários arquivos simultaneamente
-sem perder contexto de cursor ou rolagem.
+Completion criterion: users can organize several files without losing cursor or
+scrolling context.
 
-## Prioridade 3 — Minibuffer e comandos
+## Priority 3 — Minibuffer and commands
 
-- [ ] Adicionar autocomplete de comandos no `M-x`.
-- [ ] Exibir descrição e keybinding do comando selecionado.
-- [ ] Manter histórico separado para comandos, caminhos, buscas e shell.
-- [ ] Implementar navegação do histórico com setas.
-- [ ] Completar caminhos e nomes de arquivos no minibuffer.
-- [ ] Permitir argumentos prefixados, equivalente conceitual ao `C-u` do Emacs.
-- [ ] Adicionar `describe-command`, `describe-key` e `where-is`.
-- [ ] Criar comandos para recarregar keymap e packages sem reiniciar.
-- [ ] Validar o arquivo de keymap inteiro e mostrar todos os erros encontrados.
-- [ ] Permitir remover bindings explicitamente.
-- [ ] Oferecer keymaps locais por modo e keymaps transitórios.
-- [ ] Adicionar sequências de teclas como `Ctrl+X Ctrl+S`.
+- [ ] Add command completion to `M-x`.
+- [ ] Show the selected command's description and keybinding.
+- [ ] Keep separate histories for commands, paths, searches, and shell input.
+- [ ] Navigate history with arrow keys.
+- [ ] Complete paths and file names.
+- [ ] Support prefix arguments analogous to Emacs `C-u`.
+- [ ] Add `describe-command`, `describe-key`, and `where-is`.
+- [ ] Reload keymaps and packages without restarting.
+- [ ] Validate the complete keymap file and show all errors.
+- [ ] Explicitly remove bindings.
+- [ ] Support mode-local and transient keymaps.
+- [ ] Support key sequences such as `Ctrl+X Ctrl+S`.
 
-Critério de conclusão: todos os recursos podem ser descobertos e acionados sem
-consultar o código-fonte.
+Completion criterion: every feature is discoverable and executable without
+reading source code.
 
-## Prioridade 4 — Dired e arquivos
+## Priority 4 — Dired and files
 
-- [ ] Mostrar tamanho, permissões e data de modificação.
-- [ ] Ordenar por nome, tamanho, data e tipo.
-- [ ] Alternar exibição de arquivos ocultos.
-- [ ] Marcar múltiplas entradas para operações em lote.
-- [ ] Copiar e mover arquivos entre diretórios.
-- [ ] Excluir usando lixeira quando disponível.
-- [ ] Criar confirmação visual com a lista exata dos alvos.
-- [ ] Renomear vários arquivos.
-- [ ] Pesquisar e filtrar entradas.
-- [ ] Atualizar a listagem preservando a seleção.
-- [ ] Observar mudanças do sistema de arquivos.
-- [ ] Abrir arquivos com aplicações externas por comando explícito.
+- [ ] Display size, permissions, and modification time.
+- [ ] Sort by name, size, date, and type.
+- [ ] Toggle hidden files.
+- [ ] Mark multiple entries for batch operations.
+- [ ] Copy and move files between directories.
+- [ ] Use the system trash when available.
+- [ ] Show a confirmation containing the exact target list.
+- [ ] Rename multiple files.
+- [ ] Search and filter entries.
+- [ ] Refresh while preserving selection.
+- [ ] Watch filesystem changes.
+- [ ] Open files in external applications through an explicit command.
 
-Critério de conclusão: tarefas comuns de gerenciamento podem ser realizadas sem
-sair do editor e sem operações destrutivas acidentais.
+Completion criterion: common file-management tasks are available without leaving
+the editor or risking accidental destructive operations.
 
-## Prioridade 5 — Modos e highlighting
+## Priority 5 — Modes and highlighting
 
-- [ ] Definir uma interface formal de major mode.
-- [ ] Associar modos por extensão, nome de arquivo e conteúdo.
-- [ ] Transformar o modo C em um módulo separado.
-- [ ] Manter estado léxico entre linhas para comentários e strings multilinha.
-- [ ] Fazer highlighting incremental apenas nas regiões alteradas.
-- [ ] Adicionar modos Markdown, JSON, Makefile e texto simples.
-- [ ] Destacar pares de delimitadores.
-- [ ] Implementar matching de parênteses.
-- [ ] Adicionar números de linha relativos como opção.
-- [ ] Adicionar whitespace mode e indicação de trailing whitespace.
-- [ ] Criar uma interface opcional para Tree-sitter.
-- [ ] Adicionar diagnósticos e integração futura com LSP.
+- [ ] Define a formal major-mode interface.
+- [ ] Associate modes by extension, file name, and content.
+- [ ] Move C mode into a separate module.
+- [ ] Preserve lexical state across lines for multiline comments and strings.
+- [ ] Highlight incrementally, only in changed regions.
+- [ ] Add Markdown, JSON, Makefile, and plain-text modes.
+- [ ] Highlight delimiter pairs.
+- [ ] Match parentheses.
+- [ ] Add optional relative line numbers.
+- [ ] Add whitespace mode and trailing-whitespace indicators.
+- [ ] Add an optional Tree-sitter interface.
+- [ ] Prepare diagnostics and future LSP integration.
 
-Critério de conclusão: modos podem controlar highlighting, indentação, comandos e
-keymaps locais sem modificar o núcleo.
+Completion criterion: modes control highlighting, indentation, commands, and
+local keymaps without modifying the core.
 
-## Prioridade 6 — Packages
+## Priority 6 — Packages
 
-- [ ] Versionar formalmente a ABI pública de packages.
-- [ ] Ocultar estruturas internas e expor apenas funções estáveis.
-- [ ] Informar erro detalhado quando `dlopen` ou `mt_package_init` falhar.
-- [ ] Permitir descarregar e recarregar packages com segurança.
-- [ ] Adicionar metadados: nome, versão, autor, descrição e versão mínima do mt.
-- [ ] Resolver dependências entre packages.
-- [ ] Criar hooks para abertura, salvamento, alteração e troca de buffer.
-- [ ] Permitir que packages registrem modos, renderizadores e keymaps locais.
-- [ ] Criar um SDK pequeno com exemplo, documentação e template.
-- [ ] Adicionar testes de compatibilidade da ABI.
-- [ ] Avaliar uma linguagem de configuração segura, como Lua, para extensões que
-      não precisam de C nativo.
+- [ ] Formally version the public package ABI.
+- [ ] Hide internal structures and expose stable functions only.
+- [ ] Report detailed `dlopen` and `mt_package_init` failures.
+- [ ] Safely unload and reload packages.
+- [ ] Add metadata: name, version, author, description, and minimum mt version.
+- [ ] Resolve package dependencies.
+- [ ] Add hooks for opening, saving, editing, and switching buffers.
+- [ ] Let packages register modes, renderers, and local keymaps.
+- [ ] Provide a small SDK with an example, documentation, and template.
+- [ ] Add ABI compatibility tests.
+- [ ] Evaluate a safe configuration language such as Lua for extensions that do
+      not require native C.
 
-Critério de conclusão: atualizar o editor não deve quebrar silenciosamente os
-packages compatíveis com a mesma versão de ABI.
+Completion criterion: editor updates do not silently break packages compatible
+with the same ABI version.
 
-## Prioridade 7 — Interface e desempenho
+## Priority 7 — Interface and performance
 
-- [ ] Cachear texturas ou usar atlas de glifos; hoje cada trecho cria texturas.
-- [ ] Renderizar somente linhas visíveis que mudaram.
-- [ ] Trocar o buffer linear por piece table, gap buffer ou rope após benchmarks.
-- [ ] Criar índice de linhas incremental para evitar varreduras completas.
-- [ ] Suportar arquivos grandes sem carregar ou redesenhar tudo.
-- [ ] Corrigir largura visual de Unicode com uma biblioteca apropriada.
-- [ ] Adicionar rolagem horizontal.
-- [ ] Criar tema configurável em `~/.config/mt/theme.conf`.
-- [ ] Permitir configurar fonte, tamanho, line height e margens.
-- [ ] Adicionar scrollbar, cursor configurável e indicador de progresso.
-- [ ] Melhorar acessibilidade, contraste e suporte a escala HiDPI.
+- [ ] Cache textures or use a glyph atlas; rendering currently creates textures
+      for every segment.
+- [ ] Render only visible lines that changed.
+- [ ] Replace the linear buffer with a piece table, gap buffer, or rope after
+      benchmarking.
+- [ ] Add an incremental line index.
+- [ ] Support large files without loading or redrawing everything.
+- [ ] Correct Unicode display width with an appropriate library.
+- [ ] Add horizontal scrolling.
+- [ ] Load themes from `~/.config/mt/theme.conf`.
+- [ ] Configure font, size, line height, and margins.
+- [ ] Add a scrollbar, configurable cursor, and progress indicator.
+- [ ] Improve accessibility, contrast, and HiDPI scaling.
 
-Critério de conclusão: arquivos grandes continuam responsivos e a renderização
-não recria recursos gráficos desnecessariamente a cada frame.
+Completion criterion: large files remain responsive and rendering does not
+recreate unchanged graphical resources every frame.
 
-## Prioridade 8 — Testes e ferramentas de desenvolvimento
+## Priority 8 — Tests and development tools
 
-- [ ] Separar biblioteca principal do executável para facilitar testes.
-- [ ] Testar todos os comandos de edição sem inicializar SDL vídeo.
-- [ ] Testar busca, substituição, undo e seleção com UTF-8.
-- [ ] Testar Dired em uma árvore temporária controlada.
-- [ ] Testar carregamento e falhas de packages.
-- [ ] Adicionar AddressSanitizer e UndefinedBehaviorSanitizer.
-- [ ] Rodar análise estática com `clang-tidy` ou equivalente.
-- [ ] Adicionar fuzzing para documento, UTF-8, keymap e arquivos de configuração.
-- [ ] Criar testes de eventos SDL para atalhos e minibuffer.
-- [ ] Adicionar integração contínua para Linux e, depois, macOS e Windows.
-- [ ] Medir cobertura sem transformar cobertura em objetivo isolado.
+- [ ] Separate the core library from the executable.
+- [ ] Test all editing commands without initializing SDL video.
+- [ ] Test search, replacement, undo, and selection with UTF-8.
+- [ ] Test Dired in a controlled temporary tree.
+- [ ] Test successful and failed package loading.
+- [ ] Add official AddressSanitizer and UndefinedBehaviorSanitizer targets.
+- [ ] Run `clang-tidy` or equivalent static analysis.
+- [ ] Fuzz document, UTF-8, keymap, and configuration parsing.
+- [ ] Test SDL events for shortcuts and the minibuffer.
+- [ ] Add Linux CI, followed by macOS and Windows.
+- [ ] Measure coverage without treating coverage as an isolated goal.
 
-## Dívidas técnicas conhecidas
+## Known technical debt
 
-- O `Document` usa um array contíguo e move memória em inserções grandes.
-- Cálculos de coluna ainda não representam perfeitamente largura visual Unicode.
-- O highlighter de C é deliberadamente simples e não mantém estado entre linhas.
-- `cmd` usa `popen` de forma síncrona.
-- O estado de cursor e rolagem pertence ao editor, não a cada visualização.
-- O registro unificado de comandos ainda usa capacidade máxima fixa.
-- A API de packages expõe estruturas internas e ainda não possui versão de ABI.
-- Buffers são armazenados em um array de tamanho máximo fixo.
-- Mensagens usam um único campo curto em vez de um buffer de log.
-- O Dired ainda trabalha com uma entrada por linha e parsing do texto exibido.
+- `Document` uses a contiguous array and moves memory during large insertions.
+- Column calculations do not fully model visual Unicode width.
+- The C highlighter is intentionally simple and has no cross-line state.
+- `cmd` uses synchronous `popen`.
+- Cursor and scrolling state belong to the editor instead of individual views.
+- The unified command registry still has a fixed maximum capacity.
+- The package API exposes internal structures and has no ABI version.
+- Buffers use a fixed-size array.
+- Messages use one short field instead of a log buffer.
+- Dired encodes one entry per line and parses its rendered text.
 
-## Marcos sugeridos
+## Suggested milestones
 
-### Marco 1 — Editor seguro
+### Milestone 1 — Safe editor
 
-Undo/redo, confirmação de buffers modificados, salvamento atômico e `cmd`
-assíncrono.
+Undo/redo, modified-buffer confirmation, atomic saving, and asynchronous `cmd`.
 
-### Marco 2 — Ambiente de trabalho
+### Milestone 2 — Working environment
 
-Lista de buffers, fechamento de buffers, divisões de janela, histórico e
-autocomplete do minibuffer.
+Buffer list and closing, window splits, history, and minibuffer completion.
 
-### Marco 3 — Modos reais
+### Milestone 3 — Real modes
 
-Interface de major mode, modo C incremental, Markdown, JSON e keymaps locais.
+Major-mode interface, incremental C mode, Markdown, JSON, and local keymaps.
 
-### Marco 4 — Extensibilidade estável
+### Milestone 4 — Stable extensibility
 
-ABI versionada, hooks, SDK de packages, recarga e testes de compatibilidade.
+Versioned ABI, hooks, package SDK, reload support, and compatibility tests.
 
-### Marco 5 — Escala
+### Milestone 5 — Scale
 
-Nova estrutura de texto baseada em benchmarks, índice de linhas, cache de glifos
-e suporte confiável a arquivos grandes.
+A benchmark-selected text structure, line index, glyph cache, and reliable large
+file support.
 
-## Próxima implementação recomendada
+## Current recommended work
 
-O próximo trabalho deve ser undo/redo. Ele afeta praticamente toda operação de
-edição e deve existir antes que mais comandos mutáveis sejam adicionados. Uma
-sequência adequada seria:
-
-1. definir uma operação reversível de inserção ou remoção;
-2. manter pilhas de undo e redo em cada buffer;
-3. agrupar digitação contínua em uma única transação;
-4. integrar Dired e comandos que substituem regiões;
-5. adicionar testes de ida e volta para ASCII, UTF-8 e múltiplas linhas.
-
-Depois disso, a prioridade deve ser salvamento seguro e proteção contra saída com
-buffers modificados.
+The command registry step in `ARCHITECTURE.md` is complete. The next structural
+step is A2, decomposing the editor controller before more behavior is added to
+`editor.c`. Reliability work from Priority 0 should continue after each safe,
+isolated architectural migration.
