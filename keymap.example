@@ -1,0 +1,13 @@
+# Bindings não mencionados mantêm o padrão.
+ctrl+s = save
+ctrl+q = quit
+ctrl+a = select-all
+ctrl+c = copy
+ctrl+x = cut
+ctrl+v = paste
+
+# Navegação alternativa no estilo Vim.
+alt+h = cursor-left
+alt+j = cursor-down
+alt+k = cursor-up
+alt+l = cursor-right
