@@ -1,0 +1,7 @@
+mt
+.pm
+.clangd
+.clang-format
+build/*
+build/
+build

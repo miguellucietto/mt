@@ -1,8 +1,0 @@
-CompileFlags:
-  Add:
-    - -Wall
-    - -Wextra
-    - -Wpedantic
-    - -std=c17
-    - -ggdb
-    - -Iinclude

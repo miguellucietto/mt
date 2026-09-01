@@ -4,7 +4,6 @@
 #include "highlight.h"
 #include "keymap.h"
 #include "text.h"
-
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
