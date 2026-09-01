@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 
+/** Registers the complete native editing and navigation command set. */
 bool editing_register_commands(Editor *editor);
 
 #endif

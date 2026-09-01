@@ -1,6 +1,7 @@
 #include "editor.h"
 #include <stdio.h>
 
+/* Initializes the editor, runs its event loop, and returns a process-level status. */
 int main(int argc, char **argv)
 {
     Editor editor;

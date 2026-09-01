@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+/* Resolves the selected Dired line into path without exposing line parsing. */
 static bool selected_path(Editor *editor, char *path, size_t size)
 {
     Buffer *buffer = editor_current_buffer(editor);
@@ -20,6 +21,7 @@ static bool selected_path(Editor *editor, char *path, size_t size)
     return buffer_directory_entry(buffer, line, path, size, &is_directory);
 }
 
+/* Resolves absolute input or makes relative input local to the active Dired path. */
 static bool target_path(Editor *editor, const char *input, char *path, size_t size)
 {
     if (!input || !*input)
@@ -31,6 +33,7 @@ static bool target_path(Editor *editor, const char *input, char *path, size_t si
            snprintf(path, size, "%s/%s", buffer->directory, input) < (int)size;
 }
 
+/* Refreshes the active Dired buffer while preserving its directory value safely. */
 static void refresh(Editor *editor)
 {
     Buffer *buffer = editor_current_buffer(editor);
@@ -60,24 +63,28 @@ void dired_open_selected(Editor *editor)
     editor->scroll_line = 0;
 }
 
+/* Opens the directory-selection prompt for the dired command. */
 static void command_dired(Editor *editor, bool selecting)
 {
     (void)selecting;
     minibuffer_open(&editor->minibuffer, MINIBUFFER_DIRED, "Dired: ");
 }
 
+/* Adapts dired-open command invocation to the selected-entry operation. */
 static void command_open(Editor *editor, bool selecting)
 {
     (void)selecting;
     dired_open_selected(editor);
 }
 
+/* Adapts dired-refresh command invocation to the refresh operation. */
 static void command_refresh(Editor *editor, bool selecting)
 {
     (void)selecting;
     refresh(editor);
 }
 
+/* Opens file creation input only while a Dired buffer is active. */
 static void command_create_file(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -86,6 +93,7 @@ static void command_create_file(Editor *editor, bool selecting)
         minibuffer_open(&editor->minibuffer, MINIBUFFER_CREATE_FILE, "Create file: ");
 }
 
+/* Opens directory creation input only while a Dired buffer is active. */
 static void command_create_directory(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -95,6 +103,7 @@ static void command_create_directory(Editor *editor, bool selecting)
                         "Create directory: ");
 }
 
+/* Captures the selected path before requesting its replacement name. */
 static void command_rename(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -103,6 +112,7 @@ static void command_rename(Editor *editor, bool selecting)
         minibuffer_open(&editor->minibuffer, MINIBUFFER_RENAME, "Rename to: ");
 }
 
+/* Captures the selected path before requesting explicit deletion confirmation. */
 static void command_delete(Editor *editor, bool selecting)
 {
     (void)selecting;

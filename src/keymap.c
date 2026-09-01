@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Retains only modifiers that participate in configurable bindings. */
 static SDL_Keymod normalized_modifiers(SDL_Keymod modifiers)
 {
     SDL_Keymod normalized = SDL_KMOD_NONE;
@@ -105,6 +106,7 @@ const char *keymap_lookup(const Keymap *map, const SDL_KeyboardEvent *event)
     return NULL;
 }
 
+/* Trims surrounding ASCII whitespace in place and returns the first content byte. */
 static char *trim(char *text)
 {
     while (isspace((unsigned char)*text))
@@ -115,6 +117,7 @@ static char *trim(char *text)
     return text;
 }
 
+/* Parses a mutable key specification into an SDL key and normalized modifiers. */
 static bool parse_key(char *spec, SDL_Keycode *key, SDL_Keymod *modifiers)
 {
     *modifiers = SDL_KMOD_NONE;

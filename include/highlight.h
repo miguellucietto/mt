@@ -18,8 +18,10 @@ typedef struct {
     HighlightKind kind;
 } HighlightSpan;
 
+/** Tokenizes one C source line into at most capacity highlight spans. */
 size_t highlight_c_line(const char *text, size_t length, HighlightSpan *spans,
                         size_t capacity);
+/** Maps a lexical highlight kind to its current presentation color. */
 SDL_Color highlight_color(HighlightKind kind);
 
 #endif

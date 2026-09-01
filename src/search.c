@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 
+/* Selects the next query match from start, optionally wrapping once. */
 static bool find_text(Editor *editor, size_t start, bool wrap)
 {
     Document *document = editor_current_document(editor);
@@ -48,6 +49,7 @@ void search_cancel(Editor *editor)
     document->cursor = document->anchor = editor->search.origin;
 }
 
+/* Advances query-replace to its next match and updates prompt state. */
 static bool query_next(Editor *editor)
 {
     Document *document = editor_current_document(editor);
@@ -61,6 +63,7 @@ static bool query_next(Editor *editor)
     return true;
 }
 
+/* Replaces the active query match and advances the search origin. */
 static void replace_current_match(Editor *editor)
 {
     Buffer *buffer = editor_current_buffer(editor);
@@ -113,6 +116,7 @@ bool search_submit(Editor *editor, MinibufferMode mode, const char *value)
     return true;
 }
 
+/* Captures cursor origin and opens an incremental-search prompt. */
 static void command_isearch(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -121,6 +125,7 @@ static void command_isearch(Editor *editor, bool selecting)
     minibuffer_open(&editor->minibuffer, MINIBUFFER_ISEARCH, "I-search: ");
 }
 
+/* Starts the first prompt in the query-replace workflow. */
 static void command_query_replace(Editor *editor, bool selecting)
 {
     (void)selecting;

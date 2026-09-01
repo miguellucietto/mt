@@ -36,15 +36,25 @@ typedef struct Editor {
     FileState files;
     char message[256];
 } Editor;
+/** Initializes all editor subsystems and optionally opens path. */
 bool editor_init(Editor *editor, const char *path);
+/** Releases every resource owned by an initialized or partially initialized editor. */
 void editor_destroy(Editor *editor);
+/** Runs the event-render loop until the editor is asked to stop. */
 void editor_run(Editor *editor);
+/** Resolves and executes a command while maintaining editor interaction state. */
 void editor_execute_named(Editor *editor, const char *name, bool selecting);
+/** Adds a command to the editor's unified registry. */
 bool editor_register_command(Editor *editor, const char *name, const char *description,
                              unsigned int flags, CommandFunction function);
+/** Returns the active buffer, or NULL when no buffer exists. */
 Buffer *editor_current_buffer(Editor *editor);
+/** Returns the active buffer's document, or NULL when no buffer exists. */
 Document *editor_current_document(Editor *editor);
+/** Moves the active document cursor and optionally preserves its anchor. */
 void editor_set_cursor(Editor *editor, size_t position, bool selecting);
+/** Adjusts vertical scrolling so the active cursor remains visible. */
 void editor_ensure_cursor_visible(Editor *editor);
+/** Maps editor-window coordinates to a byte position in the active document. */
 size_t editor_position_from_mouse(const Editor *editor, float x, float y);
 #endif

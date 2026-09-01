@@ -18,12 +18,14 @@
 
 static int command_calls;
 
+/* Records registry callback invocation without requiring a concrete editor. */
 static void test_command_callback(struct Editor *editor, bool selecting)
 {
     assert(!editor);
     command_calls += selecting ? 2 : 1;
 }
 
+/* Verifies command validation, lookup, execution, and fixed-capacity behavior. */
 static void test_command_registry(void)
 {
     CommandRegistry registry;
@@ -62,6 +64,7 @@ static void test_command_registry(void)
                                       test_command_callback));
 }
 
+/* Verifies editing registration and representative selection, movement, and undo. */
 static void test_editing_controller(void)
 {
     Editor editor = {0};
@@ -84,6 +87,7 @@ static void test_editing_controller(void)
     buffers_destroy(&editor.buffers);
 }
 
+/* Verifies file command registration and protected quit confirmation flows. */
 static void test_file_controller(void)
 {
     Editor editor = {.running = true};
@@ -107,6 +111,7 @@ static void test_file_controller(void)
     buffers_destroy(&editor.buffers);
 }
 
+/* Verifies Dired registration, filesystem mutations, confirmation, and events. */
 static void test_dired_controller(void)
 {
     Editor editor = {0};
@@ -155,6 +160,7 @@ static void test_dired_controller(void)
     assert(rmdir(root) == 0);
 }
 
+/* Verifies owned output, combined streams, status, cleanup, and invalid arguments. */
 static void test_process_execution(void)
 {
     ProcessResult result;
@@ -169,6 +175,7 @@ static void test_process_execution(void)
     assert(error[0]);
 }
 
+/* Verifies shell command registration and read-only output presentation. */
 static void test_shell_controller(void)
 {
     Editor editor = {0};
@@ -190,6 +197,7 @@ static void test_shell_controller(void)
     buffers_destroy(&editor.buffers);
 }
 
+/* Verifies incremental search cancellation and interactive replacement state. */
 static void test_search_controller(void)
 {
     Editor editor = {0};
@@ -226,6 +234,7 @@ static void test_search_controller(void)
     buffers_destroy(&editor.buffers);
 }
 
+/* Verifies UTF-8 document insertion, coordinates, selection, and replacement. */
 static void test_document(void)
 {
     Document document;
@@ -242,6 +251,7 @@ static void test_document(void)
     document_destroy(&document);
 }
 
+/* Verifies reversible edits, revision dirtiness, and redo invalidation. */
 static void test_undo_redo(void)
 {
     Document document;
@@ -271,6 +281,7 @@ static void test_undo_redo(void)
     document_destroy(&document);
 }
 
+/* Verifies adjacent typed UTF-8 input behaves as one reversible edit group. */
 static void test_grouped_typing(void)
 {
     Document document;
@@ -293,6 +304,7 @@ static void test_grouped_typing(void)
     document_destroy(&document);
 }
 
+/* Verifies atomic replacement, permissions, contents, and symlink handling. */
 static void test_atomic_save(void)
 {
     char directory[] = "/tmp/mt-save-test-XXXXXX";
@@ -365,6 +377,7 @@ static void test_atomic_save(void)
     assert(rmdir(directory) == 0);
 }
 
+/* Verifies default bindings, overrides, modifier normalization, and file loading. */
 static void test_keymap(void)
 {
     assert(SDL_GetKeyFromName("x") == SDLK_X);
@@ -394,6 +407,7 @@ static void test_keymap(void)
     assert(strcmp(keymap_lookup(&keymap, &event), "quit") == 0);
 }
 
+/* Verifies buffer creation, text replacement, switching, and directory entries. */
 static void test_buffers(void)
 {
     BufferManager buffers;
@@ -416,6 +430,7 @@ static void test_buffers(void)
     buffers_destroy(&buffers);
 }
 
+/* Verifies same-name file replacement cannot silently discard modified contents. */
 static void test_modified_buffer_protection(void)
 {
     char root[] = "/tmp/mt-buffer-test-XXXXXX";
@@ -467,6 +482,7 @@ static void test_modified_buffer_protection(void)
     assert(rmdir(root) == 0);
 }
 
+/* Verifies representative C tokens produce ordered lexical highlight spans. */
 static void test_highlighting(void)
 {
     const char *line = "const int answer = 42; // comentário";
@@ -477,6 +493,7 @@ static void test_highlighting(void)
     assert(spans[count - 1].kind == HIGHLIGHT_COMMENT);
 }
 
+/* Runs the complete deterministic unit and controller test suite. */
 int main(void)
 {
     test_command_registry();

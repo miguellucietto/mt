@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <string.h>
 
+/* Tests an exact byte range against the supported C keyword set. */
 static bool is_keyword(const char *word, size_t length)
 {
     static const char *keywords[] = {
@@ -18,6 +19,7 @@ static bool is_keyword(const char *word, size_t length)
     return false;
 }
 
+/* Appends a non-empty lexical span when output capacity remains. */
 static void add_span(HighlightSpan *spans, size_t capacity, size_t *count, size_t start,
                      size_t length, HighlightKind kind)
 {

@@ -14,6 +14,8 @@ Feature planning, TODOs, and known technical debt are tracked in
 [ROADMAP.md](ROADMAP.md). The modularity and extensibility plan is tracked in
 [ARCHITECTURE.md](ARCHITECTURE.md). Data-structure choices and their replacement
 criteria are recorded in [DATA_STRUCTURES.md](DATA_STRUCTURES.md).
+Development rules, including required function-contract comments, are recorded
+in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Building
 

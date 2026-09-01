@@ -10,6 +10,7 @@ typedef struct {
     char packages_path[4096];
 } Config;
 
+/** Discovers and creates the user configuration paths, reporting any failure. */
 bool config_init(Config *config, char *message, size_t message_size);
 
 #endif

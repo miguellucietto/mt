@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Writes a bounded diagnostic when provided and returns false for failure paths. */
 static bool set_error(char *error, size_t error_size, const char *message)
 {
     if (error && error_size)

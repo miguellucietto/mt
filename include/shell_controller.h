@@ -7,7 +7,9 @@
 
 struct Editor;
 
+/** Registers the shell-command prompt command. */
 bool shell_register_commands(struct Editor *editor);
+/** Handles shell minibuffer submission and presents captured output. */
 bool shell_submit(struct Editor *editor, MinibufferMode mode, const char *value);
 
 #endif

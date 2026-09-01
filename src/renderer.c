@@ -5,12 +5,14 @@
 #include <stdio.h>
 #include <string.h>
 
+/* Fills one rectangle using the editor's active SDL renderer. */
 static void fill(Editor *editor, SDL_FRect rectangle, SDL_Color color)
 {
     SDL_SetRenderDrawColor(editor->renderer, color.r, color.g, color.b, color.a);
     SDL_RenderFillRect(editor->renderer, &rectangle);
 }
 
+/* Renders an explicit UTF-8 byte range and returns its measured width if requested. */
 static void draw_text(Editor *editor, const char *text, size_t length, float x, float y,
                       SDL_Color color)
 {
@@ -28,6 +30,7 @@ static void draw_text(Editor *editor, const char *text, size_t length, float x, 
     }
 }
 
+/* Reports whether the active buffer path selects the built-in C highlighter. */
 static bool is_c_buffer(const Buffer *buffer)
 {
     const char *path = buffer->document.path;
@@ -37,6 +40,7 @@ static bool is_c_buffer(const Buffer *buffer)
     return extension && (strcmp(extension, ".c") == 0 || strcmp(extension, ".h") == 0);
 }
 
+/* Draws one line by mapping lexer spans to colored text runs. */
 static void draw_highlighted_line(Editor *editor, const char *text, size_t length,
                                   float x, float y)
 {

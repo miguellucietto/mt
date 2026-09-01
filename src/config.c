@@ -6,11 +6,13 @@
 #include <string.h>
 #include <sys/stat.h>
 
+/* Ensures path names an accessible directory, creating it when absent. */
 static bool ensure_directory(const char *path)
 {
     return mkdir(path, 0755) == 0 || errno == EEXIST;
 }
 
+/* Joins two path components into bounded storage without accepting truncation. */
 static bool join_path(char *destination, size_t size, const char *base,
                       const char *name)
 {

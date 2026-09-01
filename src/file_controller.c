@@ -53,6 +53,7 @@ bool file_submit(Editor *editor, MinibufferMode mode, const char *value)
     return true;
 }
 
+/* Saves the active document and reports the persistence result to the editor. */
 static void command_save(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -61,12 +62,14 @@ static void command_save(Editor *editor, bool selecting)
         document_save(&buffer->document, editor->message, sizeof(editor->message));
 }
 
+/* Opens the path prompt used by the find-file command. */
 static void command_find_file(Editor *editor, bool selecting)
 {
     (void)selecting;
     minibuffer_open(&editor->minibuffer, MINIBUFFER_FIND_FILE, "Find file: ");
 }
 
+/* Routes quit command invocation through modified-buffer protection. */
 static void command_quit(Editor *editor, bool selecting)
 {
     (void)selecting;

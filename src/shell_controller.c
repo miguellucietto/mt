@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 
+/* Opens the shell-command prompt through the unified command registry callback. */
 static void command_shell(Editor *editor, bool selecting)
 {
     (void)selecting;

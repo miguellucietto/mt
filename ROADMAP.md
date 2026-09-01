@@ -17,6 +17,8 @@ The structural work required to keep these features modular is detailed in
 - Operations that can lose data require confirmation or recovery.
 - Text features must handle UTF-8 correctly.
 - Every change must compile without warnings and include risk-appropriate tests.
+- Every function must have an accurate contract or intent comment that changes
+  with its implementation, following `CONTRIBUTING.md`.
 
 ## Priority 0 — Reliability and safety
 

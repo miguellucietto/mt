@@ -13,6 +13,8 @@ this plan describes the low-coupling foundation required to implement them.
 - Do not mix structural refactoring with unrelated features.
 - Preserve observable behavior unless an acceptance criterion explicitly changes it.
 - Keep every commit warning-free, buildable, and covered by risk-appropriate tests.
+- Keep every function contract documented according to `CONTRIBUTING.md`, and
+  update the comment in the same commit whenever the contract changes.
 - Prefer incremental migrations over complete rewrites.
 - Do not add dependencies without documenting the need, cost, and alternatives.
 - Do not expose new internal structures through the public API.

@@ -10,8 +10,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Registers coordinator-owned commands after each feature controller. */
 static bool register_native_commands(Editor *editor);
 
+/* Locates the configured or first available platform monospace font. */
 static const char *find_font(void)
 {
     const char *override = getenv("MT_FONT");
@@ -151,6 +153,7 @@ size_t editor_position_from_mouse(const Editor *editor, float x, float y)
     return text_position_at(&buffer->document, line, column);
 }
 
+/* Builds a read-only buffer describing the current unified command registry. */
 static void show_commands(Editor *editor)
 {
     char contents[16384];
@@ -166,6 +169,7 @@ static void show_commands(Editor *editor)
     editor->scroll_line = 0;
 }
 
+/* Inserts a newline or delegates Enter to the active directory controller. */
 static void command_newline(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -176,12 +180,14 @@ static void command_newline(Editor *editor, bool selecting)
         document_insert(&buffer->document, "\n");
 }
 
+/* Opens the named-command prompt used by M-x. */
 static void command_execute_command(Editor *editor, bool selecting)
 {
     (void)selecting;
     minibuffer_open(&editor->minibuffer, MINIBUFFER_COMMAND, "M-x ");
 }
 
+/* Activates the next buffer and resets its initial vertical viewport. */
 static void command_next_buffer(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -189,6 +195,7 @@ static void command_next_buffer(Editor *editor, bool selecting)
     editor->scroll_line = 0;
 }
 
+/* Presents all commands through the registry-generated command buffer. */
 static void command_list_commands(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -202,6 +209,7 @@ typedef struct {
     CommandFunction function;
 } NativeCommand;
 
+/* Composes controller registrations with the small coordinator command set. */
 static bool register_native_commands(Editor *editor)
 {
     if (!editing_register_commands(editor))
@@ -253,6 +261,7 @@ void editor_execute_named(Editor *editor, const char *name, bool selecting)
     editor_ensure_cursor_visible(editor);
 }
 
+/* Normalizes prompt input and dispatches it to the owning controller. */
 static void submit_minibuffer(Editor *editor)
 {
     MinibufferMode mode = editor->minibuffer.mode;
@@ -273,6 +282,7 @@ static void submit_minibuffer(Editor *editor)
     editor->scroll_line = 0;
 }
 
+/* Routes input to an active minibuffer session and reports event consumption. */
 static bool handle_minibuffer_event(Editor *editor, const SDL_Event *event)
 {
     if (editor->minibuffer.mode == MINIBUFFER_INACTIVE)
@@ -308,6 +318,7 @@ static bool handle_minibuffer_event(Editor *editor, const SDL_Event *event)
     return event->type == SDL_EVENT_TEXT_INPUT || event->type == SDL_EVENT_KEY_DOWN;
 }
 
+/* Coordinates one SDL event across lifecycle, controllers, keymaps, and input. */
 static void handle_event(Editor *editor, const SDL_Event *event)
 {
     if (event->type == SDL_EVENT_QUIT) {

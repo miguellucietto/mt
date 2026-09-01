@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 
+/* Implements the example package command by publishing a short editor message. */
 static void hello(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -11,6 +12,7 @@ static void hello(Editor *editor, bool selecting)
         snprintf(editor->message, sizeof(editor->message), "Package hello executado");
 }
 
+/* Registers the example command and reports package initialization success. */
 bool mt_package_init(MtAPI *api)
 {
     return api->register_command(api->editor, "hello",

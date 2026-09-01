@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Copies selected bytes to the platform clipboard and optionally erases them. */
 static void copy_selection(Editor *editor, bool erase)
 {
     Document *document = editor_current_document(editor);
@@ -25,6 +26,7 @@ static void copy_selection(Editor *editor, bool erase)
         document_erase(document, start, end);
 }
 
+/* Moves by logical lines while preserving the editor's desired column. */
 static void move_vertical(Editor *editor, int delta, bool selecting)
 {
     Document *document = editor_current_document(editor);
@@ -38,12 +40,14 @@ static void move_vertical(Editor *editor, int delta, bool selecting)
                           selecting);
 }
 
+/* Classifies one byte position for the editor's ASCII-oriented word navigation. */
 static bool word_character(const char *text, size_t position)
 {
     unsigned char character = (unsigned char)text[position];
     return character >= 0x80 || isalnum(character) || character == '_';
 }
 
+/* Finds the previous word boundary without moving before the document. */
 static size_t previous_word(const Document *document, size_t position)
 {
     while (position && !word_character(document->text, text_previous_codepoint(
@@ -55,6 +59,7 @@ static size_t previous_word(const Document *document, size_t position)
     return position;
 }
 
+/* Finds the next word boundary without moving beyond the document. */
 static size_t next_word(const Document *document, size_t position)
 {
     while (position < document->length && word_character(document->text, position))
@@ -64,6 +69,7 @@ static size_t next_word(const Document *document, size_t position)
     return position;
 }
 
+/* Selects every byte in the active document. */
 static void command_select_all(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -72,12 +78,14 @@ static void command_select_all(Editor *editor, bool selecting)
     document->cursor = document->length;
 }
 
+/* Copies the active selection without changing the document. */
 static void command_copy(Editor *editor, bool selecting)
 {
     (void)selecting;
     copy_selection(editor, false);
 }
 
+/* Copies and removes the active selection when the buffer is writable. */
 static void command_cut(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -85,6 +93,7 @@ static void command_cut(Editor *editor, bool selecting)
         copy_selection(editor, true);
 }
 
+/* Inserts clipboard text into the active writable document. */
 static void command_paste(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -95,6 +104,7 @@ static void command_paste(Editor *editor, bool selecting)
     SDL_free(text);
 }
 
+/* Reverses the latest active-document edit. */
 static void command_undo(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -103,6 +113,7 @@ static void command_undo(Editor *editor, bool selecting)
         document_undo(&buffer->document);
 }
 
+/* Reapplies the latest reverted active-document edit. */
 static void command_redo(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -111,6 +122,7 @@ static void command_redo(Editor *editor, bool selecting)
         document_redo(&buffer->document);
 }
 
+/* Removes the selection or preceding UTF-8 codepoint in a writable buffer. */
 static void command_backspace(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -127,6 +139,7 @@ static void command_backspace(Editor *editor, bool selecting)
                        document->cursor);
 }
 
+/* Removes the selection or following UTF-8 codepoint in a writable buffer. */
 static void command_delete(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -143,6 +156,7 @@ static void command_delete(Editor *editor, bool selecting)
             text_next_codepoint(document->text, document->length, document->cursor));
 }
 
+/* Inserts the current fixed tab representation into a writable buffer. */
 static void command_tab(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -151,6 +165,7 @@ static void command_tab(Editor *editor, bool selecting)
         document_insert(&buffer->document, "    ");
 }
 
+/* Moves or extends the cursor one UTF-8 codepoint to the left. */
 static void command_cursor_left(Editor *editor, bool selecting)
 {
     Document *document = editor_current_document(editor);
@@ -158,6 +173,7 @@ static void command_cursor_left(Editor *editor, bool selecting)
                       selecting);
 }
 
+/* Moves or extends the cursor one UTF-8 codepoint to the right. */
 static void command_cursor_right(Editor *editor, bool selecting)
 {
     Document *document = editor_current_document(editor);
@@ -166,50 +182,59 @@ static void command_cursor_right(Editor *editor, bool selecting)
         selecting);
 }
 
+/* Moves or extends the cursor one logical line upward. */
 static void command_cursor_up(Editor *editor, bool selecting)
 {
     move_vertical(editor, -1, selecting);
 }
 
+/* Moves or extends the cursor one logical line downward. */
 static void command_cursor_down(Editor *editor, bool selecting)
 {
     move_vertical(editor, 1, selecting);
 }
 
+/* Moves or extends the cursor to the previous word boundary. */
 static void command_word_left(Editor *editor, bool selecting)
 {
     Document *document = editor_current_document(editor);
     editor_set_cursor(editor, previous_word(document, document->cursor), selecting);
 }
 
+/* Moves or extends the cursor to the next word boundary. */
 static void command_word_right(Editor *editor, bool selecting)
 {
     Document *document = editor_current_document(editor);
     editor_set_cursor(editor, next_word(document, document->cursor), selecting);
 }
 
+/* Moves or extends the cursor to the current logical line start. */
 static void command_line_start(Editor *editor, bool selecting)
 {
     Document *document = editor_current_document(editor);
     editor_set_cursor(editor, text_line_start(document, document->cursor), selecting);
 }
 
+/* Moves or extends the cursor to the current logical line end. */
 static void command_line_end(Editor *editor, bool selecting)
 {
     Document *document = editor_current_document(editor);
     editor_set_cursor(editor, text_line_end(document, document->cursor), selecting);
 }
 
+/* Moves or extends the cursor to the start of the document. */
 static void command_buffer_start(Editor *editor, bool selecting)
 {
     editor_set_cursor(editor, 0, selecting);
 }
 
+/* Moves or extends the cursor to the end of the document. */
 static void command_buffer_end(Editor *editor, bool selecting)
 {
     editor_set_cursor(editor, editor_current_document(editor)->length, selecting);
 }
 
+/* Deletes through line end, or the newline when already at line end. */
 static void command_kill_line(Editor *editor, bool selecting)
 {
     (void)selecting;
@@ -223,11 +248,13 @@ static void command_kill_line(Editor *editor, bool selecting)
     document_erase(document, document->cursor, end);
 }
 
+/* Moves upward by the current viewport's logical line count. */
 static void command_page_up(Editor *editor, bool selecting)
 {
     move_vertical(editor, -10, selecting);
 }
 
+/* Moves downward by the current viewport's logical line count. */
 static void command_page_down(Editor *editor, bool selecting)
 {
     move_vertical(editor, 10, selecting);

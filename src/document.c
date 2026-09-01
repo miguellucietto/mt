@@ -21,6 +21,7 @@ struct DocumentEdit {
     bool typed;
 };
 
+/* Allocates an owned copy of a NUL-terminated string. */
 static char *string_copy(const char *text)
 {
     size_t size = strlen(text) + 1;
@@ -30,6 +31,7 @@ static char *string_copy(const char *text)
     return copy;
 }
 
+/* Allocates a NUL-terminated copy of an explicit byte range. */
 static char *memory_copy(const char *text, size_t length)
 {
     char *copy = malloc(length + 1);
@@ -40,6 +42,7 @@ static char *memory_copy(const char *text, size_t length)
     return copy;
 }
 
+/* Releases byte ranges owned by one history entry and resets it. */
 static void edit_destroy(DocumentEdit *edit)
 {
     free(edit->removed);
@@ -47,12 +50,14 @@ static void edit_destroy(DocumentEdit *edit)
     memset(edit, 0, sizeof(*edit));
 }
 
+/* Releases the owned contents of each entry in a history array. */
 static void edits_clear(DocumentEdit *edits, size_t count)
 {
     for (size_t i = 0; i < count; i++)
         edit_destroy(&edits[i]);
 }
 
+/* Appends an owned edit, growing history without losing prior entries on failure. */
 static bool edits_push(DocumentEdit **edits, size_t *count, size_t *capacity,
                        DocumentEdit edit)
 {
@@ -68,10 +73,12 @@ static bool edits_push(DocumentEdit **edits, size_t *count, size_t *capacity,
     return true;
 }
 
+/* Derives the dirty flag from current and saved revision identities. */
 static void update_dirty(Document *d)
 {
     d->dirty = d->revision != d->saved_revision;
 }
+/* Ensures text storage can hold needed bytes plus its terminator. */
 static bool reserve(Document *d, size_t needed)
 {
     if (needed + 1 <= d->capacity)
@@ -114,6 +121,7 @@ bool document_has_selection(const Document *d)
 {
     return d->cursor != d->anchor;
 }
+/* Performs one range replacement and records enough state for exact reversal. */
 static bool replace(Document *d, size_t start, size_t end, const char *text,
                     size_t inserted, bool typed)
 {
@@ -150,6 +158,7 @@ static bool replace(Document *d, size_t start, size_t end, const char *text,
     return true;
 }
 
+/* Merges the latest adjacent typed insertion into its preceding undo entry. */
 static void merge_typed_insert(Document *d)
 {
     if (d->undo_count < 2)
@@ -177,6 +186,7 @@ static void merge_typed_insert(Document *d)
     d->undo_count--;
 }
 
+/* Implements selection replacement with optional typed-input grouping. */
 static bool insert(Document *d, const char *text, bool typed)
 {
     size_t start = document_selection_start(d), end = document_selection_end(d);
@@ -203,6 +213,7 @@ void document_erase(Document *d, size_t start, size_t end)
         (void)replace(d, start, end, "", 0, false);
 }
 
+/* Moves one reversible edit between history stacks and restores its prior state. */
 static bool apply_history(Document *d, DocumentEdit **source, size_t *source_count,
                           DocumentEdit **target, size_t *target_count,
                           size_t *target_capacity, bool redo)

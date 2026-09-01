@@ -7,12 +7,14 @@
 #include <string.h>
 #include <sys/stat.h>
 
+/* Returns a borrowed pointer to the final component of path. */
 static const char *base_name(const char *path)
 {
     const char *slash = strrchr(path, '/');
     return slash && slash[1] ? slash + 1 : path;
 }
 
+/* Compares canonical paths when possible and falls back to literal equality. */
 static bool same_file(const char *left, const char *right)
 {
     if (!left || !right)
@@ -25,6 +27,7 @@ static bool same_file(const char *left, const char *right)
            left_info.st_ino == right_info.st_ino;
 }
 
+/* Finds a same-name buffer or returns manager->count when none exists. */
 static size_t buffer_index_for_name(const BufferManager *manager, const char *name)
 {
     for (size_t i = 0; i < manager->count; i++)
@@ -94,6 +97,7 @@ size_t buffers_modified_count(const BufferManager *manager)
     return count;
 }
 
+/* Loads path into a reusable same-name buffer, honoring explicit replacement. */
 static Buffer *open_file(BufferManager *manager, const char *path, char *message,
                          size_t message_size, bool replace_modified)
 {

@@ -29,9 +29,13 @@ typedef struct {
     size_t length;
 } Minibuffer;
 
+/** Starts a prompt session with empty input in the requested mode. */
 void minibuffer_open(Minibuffer *minibuffer, MinibufferMode mode, const char *prompt);
+/** Ends the current prompt and clears its input. */
 void minibuffer_close(Minibuffer *minibuffer);
+/** Appends UTF-8 text when the bounded input buffer has sufficient space. */
 void minibuffer_insert(Minibuffer *minibuffer, const char *text);
+/** Removes the final UTF-8 codepoint from minibuffer input. */
 void minibuffer_backspace(Minibuffer *minibuffer);
 
 #endif
