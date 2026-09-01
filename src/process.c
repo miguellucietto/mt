@@ -13,10 +13,10 @@ static bool set_error(char *error, size_t error_size, const char *message)
     return false;
 }
 
-bool process_run_shell(const char *command, ProcessResult *result, char *error,
-                       size_t error_size)
+bool process_run_shell(const char *command, size_t output_limit, ProcessResult *result,
+                       char *error, size_t error_size)
 {
-    if (!command || !result)
+    if (!command || !result || !output_limit || output_limit == SIZE_MAX)
         return set_error(error, error_size, "Invalid process arguments");
     *result = (ProcessResult){0};
     static const char prefix[] = "( ";
@@ -37,8 +37,9 @@ bool process_run_shell(const char *command, ProcessResult *result, char *error,
     if (!pipe)
         return set_error(error, error_size, "Unable to start the shell command");
 
-    size_t capacity = 4096;
+    size_t capacity = output_limit < 4095 ? output_limit + 1 : 4096;
     size_t length = 0;
+    bool limit_exceeded = false;
     char *output = malloc(capacity);
     if (!output) {
         pclose(pipe);
@@ -46,13 +47,14 @@ bool process_run_shell(const char *command, ProcessResult *result, char *error,
     }
     int character;
     while ((character = fgetc(pipe)) != EOF) {
+        if (length >= output_limit) {
+            limit_exceeded = true;
+            continue;
+        }
         if (length + 1 >= capacity) {
-            if (capacity > SIZE_MAX / 2) {
-                free(output);
-                pclose(pipe);
-                return set_error(error, error_size, "Process output is too large");
-            }
-            size_t larger_capacity = capacity * 2;
+            size_t maximum_capacity = output_limit + 1;
+            size_t larger_capacity =
+                capacity > maximum_capacity / 2 ? maximum_capacity : capacity * 2;
             char *larger = realloc(output, larger_capacity);
             if (!larger) {
                 free(output);
@@ -70,6 +72,11 @@ bool process_run_shell(const char *command, ProcessResult *result, char *error,
         return set_error(error, error_size, "Unable to read process output");
     }
     int status = pclose(pipe);
+    if (limit_exceeded) {
+        free(output);
+        return set_error(error, error_size,
+                         "Process output exceeded the configured limit");
+    }
     output[length] = '\0';
     result->output = output;
     result->status = status;

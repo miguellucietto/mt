@@ -5,7 +5,35 @@
 #include <stdio.h>
 #include <string.h>
 
-/* Selects the next query match from start, optionally wrapping once. */
+/* Folds one ASCII byte while leaving UTF-8 and other bytes unchanged. */
+static unsigned char fold_ascii(unsigned char byte)
+{
+    if (byte >= 'A' && byte <= 'Z')
+        return (unsigned char)(byte + ('a' - 'A'));
+    return byte;
+}
+
+/* Finds a query using exact bytes or deterministic ASCII-insensitive comparison. */
+static const char *find_query(const char *text, const char *query, bool case_sensitive)
+{
+    if (case_sensitive)
+        return strstr(text, query);
+    size_t query_length = strlen(query);
+    if (!query_length)
+        return text;
+    for (const char *candidate = text; *candidate; candidate++) {
+        size_t i = 0;
+        while (i < query_length && candidate[i] &&
+               fold_ascii((unsigned char)candidate[i]) ==
+                   fold_ascii((unsigned char)query[i]))
+            i++;
+        if (i == query_length)
+            return candidate;
+    }
+    return NULL;
+}
+
+/* Selects the next configured-case query match, optionally wrapping once. */
 static bool find_text(Editor *editor, size_t start, bool wrap)
 {
     Document *document = editor_current_document(editor);
@@ -14,9 +42,11 @@ static bool find_text(Editor *editor, size_t start, bool wrap)
         document->cursor = document->anchor = search->origin;
         return false;
     }
-    const char *match = strstr(document->text + start, search->query);
+    const char *match = find_query(document->text + start, search->query,
+                                   editor->settings.search_case_sensitive);
     if (!match && wrap && start > 0) {
-        match = strstr(document->text, search->query);
+        match = find_query(document->text, search->query,
+                           editor->settings.search_case_sensitive);
         if (match && (size_t)(match - document->text) >= start)
             match = NULL;
     }
@@ -32,7 +62,8 @@ void search_update(Editor *editor)
 {
     SearchState *search = &editor->search;
     snprintf(search->query, sizeof(search->query), "%s", editor->minibuffer.input);
-    if (!find_text(editor, search->origin, true) && search->query[0])
+    if (!find_text(editor, search->origin, editor->settings.search_wrap) &&
+        search->query[0])
         snprintf(editor->message, sizeof(editor->message), "Sem resultado: %.180s",
                  search->query);
 }
@@ -40,7 +71,7 @@ void search_update(Editor *editor)
 void search_next(Editor *editor)
 {
     Document *document = editor_current_document(editor);
-    find_text(editor, document_selection_end(document), true);
+    find_text(editor, document_selection_end(document), editor->settings.search_wrap);
 }
 
 void search_cancel(Editor *editor)

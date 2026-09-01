@@ -303,18 +303,21 @@ static void test_dired_controller(void)
     assert(rmdir(root) == 0);
 }
 
-/* Verifies owned output, combined streams, status, cleanup, and invalid arguments. */
+/* Verifies owned output, stream capture, limits, cleanup, and invalid arguments. */
 static void test_process_execution(void)
 {
     ProcessResult result;
     char error[256] = {0};
-    assert(process_run_shell("printf stdout; printf stderr >&2", &result, error,
+    assert(process_run_shell("printf stdout; printf stderr >&2", 1024, &result, error,
                              sizeof(error)));
     assert(strcmp(result.output, "stdoutstderr") == 0);
     assert(result.status == 0);
     process_result_destroy(&result);
     assert(!result.output && result.status == 0);
-    assert(!process_run_shell(NULL, &result, error, sizeof(error)));
+    assert(!process_run_shell("printf 12345", 4, &result, error, sizeof(error)));
+    assert(strstr(error, "configured limit"));
+    assert(!result.output);
+    assert(!process_run_shell(NULL, 1024, &result, error, sizeof(error)));
     assert(error[0]);
 }
 
@@ -322,6 +325,7 @@ static void test_process_execution(void)
 static void test_shell_controller(void)
 {
     Editor editor = {0};
+    settings_init_defaults(&editor.settings);
     command_registry_init(&editor.commands);
     assert(shell_register_commands(&editor));
     assert(editor.commands.count == 1);
@@ -344,6 +348,7 @@ static void test_shell_controller(void)
 static void test_search_controller(void)
 {
     Editor editor = {0};
+    settings_init_defaults(&editor.settings);
     command_registry_init(&editor.commands);
     assert(search_register_commands(&editor));
     assert(editor.commands.count == 2);
@@ -359,6 +364,24 @@ static void test_search_controller(void)
     assert(document_selection_end(document) == 7);
     search_cancel(&editor);
     assert(document->cursor == 0 && document->anchor == 0);
+
+    snprintf(editor.minibuffer.input, sizeof(editor.minibuffer.input), "TWO");
+    editor.minibuffer.length = 3;
+    editor.settings.search_case_sensitive = false;
+    search_update(&editor);
+    assert(document_selection_start(document) == 4);
+    assert(document_selection_end(document) == 7);
+
+    snprintf(editor.search.query, sizeof(editor.search.query), "one");
+    document->anchor = 8;
+    document->cursor = 11;
+    editor.settings.search_wrap = false;
+    search_next(&editor);
+    assert(document->anchor == 8 && document->cursor == 11);
+    editor.settings.search_wrap = true;
+    search_next(&editor);
+    assert(document->anchor == 0 && document->cursor == 3);
+    document->cursor = document->anchor = 0;
 
     assert(command_registry_execute(&editor.commands, "query-replace", &editor, false));
     assert(search_submit(&editor, MINIBUFFER_QUERY_FIND, "one"));

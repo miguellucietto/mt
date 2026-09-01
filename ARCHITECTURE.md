@@ -96,7 +96,7 @@ Suggested branch: `feat/settings`
 - [x] Load the entire configuration before applying it.
 - [x] Report every error with file and line.
 - [ ] Reload safely without restarting.
-- [ ] Add settings for Tab, search, processes, and visual preferences.
+- [x] Add settings for Tab, search, processes, and visual preferences.
 - [ ] Test defaults, valid values, errors, and transactional reload.
 
 Acceptance criteria:

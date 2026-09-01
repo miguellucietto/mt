@@ -31,7 +31,7 @@ The structural work required to keep these features modular is detailed in
 - [ ] Prevent Dired from deleting non-empty directories without explicit
       confirmation.
 - [ ] Run `cmd` asynchronously so it cannot freeze the interface.
-- [ ] Add a configurable limit for very large process output.
+- [x] Add a configurable limit for very large process output.
 - [ ] Handle binary files and invalid UTF-8 bytes without corrupting the buffer.
 
 Completion criterion: normal workflows cannot silently lose changes, and
@@ -46,10 +46,10 @@ external processes cannot block the SDL main loop.
 - [ ] Duplicate, move, and select lines.
 - [ ] Indent and unindent regions.
 - [ ] Detect and preserve LF and CRLF line endings.
-- [ ] Configure Tab width and behavior.
+- [x] Configure Tab width and behavior.
 - [ ] Add basic automatic indentation on Enter.
 - [ ] Add reverse search and search history.
-- [ ] Make `query-replace` optionally case-sensitive.
+- [x] Make `query-replace` optionally case-sensitive.
 - [ ] Add regular-expression search and replacement.
 - [ ] Preserve visual columns across tabs, wide Unicode, and combining marks.
 

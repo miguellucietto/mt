@@ -24,7 +24,8 @@ bool shell_submit(Editor *editor, MinibufferMode mode, const char *value)
         return false;
     ProcessResult result;
     char error[256];
-    if (!process_run_shell(value, &result, error, sizeof(error))) {
+    if (!process_run_shell(value, editor->settings.process_output_limit, &result, error,
+                           sizeof(error))) {
         snprintf(editor->message, sizeof(editor->message), "%s", error);
         return true;
     }

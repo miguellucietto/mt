@@ -139,6 +139,12 @@ Boolean values must be `true` or `false`. Unknown keys, duplicate keys, invalid
 types, and out-of-range values are rejected with the file and line number. The
 entire file is validated before any setting is applied.
 
+`search.wrap` controls whether interactive search wraps at the document end.
+`search.case_sensitive = false` enables deterministic ASCII case folding while
+leaving non-ASCII UTF-8 bytes exact. `process.output_limit` bounds the combined
+stdout/stderr bytes retained for `cmd`; excess output is drained safely and the
+command reports an error instead of growing memory beyond the configured limit.
+
 The `keymap.conf` format is:
 
 ```text
