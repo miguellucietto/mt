@@ -38,6 +38,11 @@ const Buffer *buffers_current_const(const BufferManager *manager);
 Buffer *buffers_create(BufferManager *manager, const char *name, BufferType type);
 Buffer *buffers_open_file(BufferManager *manager, const char *path, char *message,
                           size_t message_size);
+Buffer *buffers_open_file_confirmed(BufferManager *manager, const char *path,
+                                    char *message, size_t message_size);
+bool buffers_file_would_replace_modified(const BufferManager *manager,
+                                         const char *path);
+size_t buffers_modified_count(const BufferManager *manager);
 Buffer *buffers_open_text(BufferManager *manager, const char *name, BufferType type,
                           const char *text, bool read_only);
 void buffers_next(BufferManager *manager);

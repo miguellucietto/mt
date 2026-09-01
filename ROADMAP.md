@@ -17,8 +17,8 @@ nomeados, configuração transparente e extensões desacopladas do núcleo.
 
 ## Prioridade 0 — Confiabilidade e segurança
 
-- [ ] Avisar sobre buffers modificados antes de sair.
-- [ ] Avisar antes de fechar ou substituir um buffer modificado.
+- [x] Avisar sobre buffers modificados antes de sair.
+- [x] Avisar antes de fechar ou substituir um buffer modificado.
 - [x] Implementar salvamento atômico usando arquivo temporário e `rename`.
 - [x] Preservar permissões do arquivo durante o salvamento.
 - [ ] Detectar alterações externas no arquivo aberto.

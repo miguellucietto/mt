@@ -47,6 +47,9 @@ O minibuffer usa `Enter` para confirmar e `Esc` para cancelar.
 Pressionar `Enter` em um `M-x` vazio abre o buffer `*commands*` com todos os
 comandos nativos e os comandos fornecidos pelos packages.
 
+Ao sair com alterações não salvas, ou ao abrir um arquivo que substituiria um
+buffer modificado de mesmo nome, o editor exige a confirmação textual `yes`.
+
 ## Busca e substituição
 
 `Ctrl+F` ou `M-x isearch` abre a busca incremental. O resultado é atualizado

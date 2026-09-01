@@ -203,6 +203,57 @@ static void test_buffers(void)
     buffers_destroy(&buffers);
 }
 
+static void test_modified_buffer_protection(void)
+{
+    char root[] = "/tmp/mt-buffer-test-XXXXXX";
+    assert(mkdtemp(root));
+    char first_directory[512], second_directory[512];
+    char first_path[512], second_path[512];
+    assert(snprintf(first_directory, sizeof(first_directory), "%s/first", root) > 0);
+    assert(snprintf(second_directory, sizeof(second_directory), "%s/second", root) > 0);
+    assert(mkdir(first_directory, 0700) == 0);
+    assert(mkdir(second_directory, 0700) == 0);
+    assert(snprintf(first_path, sizeof(first_path), "%s/same.txt", first_directory) >
+           0);
+    assert(snprintf(second_path, sizeof(second_path), "%s/same.txt", second_directory) >
+           0);
+    FILE *file = fopen(first_path, "wb");
+    assert(file);
+    assert(fwrite("first", 1, 5, file) == 5);
+    assert(fclose(file) == 0);
+    file = fopen(second_path, "wb");
+    assert(file);
+    assert(fwrite("second", 1, 6, file) == 6);
+    assert(fclose(file) == 0);
+
+    BufferManager buffers;
+    char message[256];
+    assert(buffers_init(&buffers));
+    Buffer *buffer = buffers_open_file(&buffers, first_path, message, sizeof(message));
+    assert(buffer);
+    buffer->document.cursor = buffer->document.anchor = buffer->document.length;
+    assert(document_insert(&buffer->document, " modified"));
+    assert(buffers_modified_count(&buffers) == 1);
+    assert(buffers_open_file(&buffers, first_path, message, sizeof(message)) == buffer);
+    assert(strcmp(buffer->document.text, "first modified") == 0);
+
+    assert(buffers_file_would_replace_modified(&buffers, second_path));
+    assert(!buffers_open_file(&buffers, second_path, message, sizeof(message)));
+    assert(strcmp(buffer->document.text, "first modified") == 0);
+    assert(buffers_open_file_confirmed(&buffers, second_path, message,
+                                       sizeof(message)) == buffer);
+    assert(strcmp(buffer->document.text, "second") == 0);
+    assert(strcmp(buffer->document.path, second_path) == 0);
+    assert(buffers_modified_count(&buffers) == 0);
+    buffers_destroy(&buffers);
+
+    assert(unlink(first_path) == 0);
+    assert(unlink(second_path) == 0);
+    assert(rmdir(first_directory) == 0);
+    assert(rmdir(second_directory) == 0);
+    assert(rmdir(root) == 0);
+}
+
 static void test_highlighting(void)
 {
     const char *line = "const int answer = 42; // comentário";
@@ -221,6 +272,7 @@ int main(void)
     test_atomic_save();
     test_keymap();
     test_buffers();
+    test_modified_buffer_protection();
     test_highlighting();
     puts("todos os testes passaram");
     return 0;

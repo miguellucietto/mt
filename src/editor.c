@@ -309,7 +309,11 @@ static void open_dired_entry(Editor *editor)
     if (directory)
         buffer_refresh_directory(buffer, path, editor->message,
                                  sizeof(editor->message));
-    else
+    else if (buffers_file_would_replace_modified(&editor->buffers, path)) {
+        snprintf(editor->pending_path, sizeof(editor->pending_path), "%s", path);
+        minibuffer_open(&editor->minibuffer, MINIBUFFER_REPLACE_BUFFER_CONFIRM,
+                        "Buffer modificado. Substituir? digite yes: ");
+    } else
         buffers_open_file(&editor->buffers, path, editor->message,
                           sizeof(editor->message));
     editor->scroll_line = 0;
@@ -367,6 +371,20 @@ static void show_commands(Editor *editor)
     }
     buffers_open_text(&editor->buffers, "*commands*", BUFFER_MESSAGES, contents, true);
     editor->scroll_line = 0;
+}
+
+static void request_quit(Editor *editor)
+{
+    size_t modified = buffers_modified_count(&editor->buffers);
+    if (!modified) {
+        editor->running = false;
+        return;
+    }
+    char prompt[64];
+    snprintf(prompt, sizeof(prompt),
+             "%zu buffer%s modificado%s. Sair? digite yes: ", modified,
+             modified == 1 ? "" : "s", modified == 1 ? "" : "s");
+    minibuffer_open(&editor->minibuffer, MINIBUFFER_QUIT_CONFIRM, prompt);
 }
 
 void editor_execute(Editor *editor, Command command, bool selecting)
@@ -545,7 +563,7 @@ void editor_execute(Editor *editor, Command command, bool selecting)
         show_commands(editor);
         break;
     case COMMAND_QUIT:
-        editor->running = false;
+        request_quit(editor);
         break;
     case COMMAND_NONE:
         return;
@@ -589,10 +607,15 @@ static void submit_minibuffer(Editor *editor)
         editor_execute_named(editor, value, false);
     else if (mode == MINIBUFFER_SHELL)
         execute_shell(editor, value);
-    else if (mode == MINIBUFFER_FIND_FILE)
-        buffers_open_file(&editor->buffers, value, editor->message,
-                          sizeof(editor->message));
-    else if (mode == MINIBUFFER_DIRED) {
+    else if (mode == MINIBUFFER_FIND_FILE) {
+        if (buffers_file_would_replace_modified(&editor->buffers, value)) {
+            snprintf(editor->pending_path, sizeof(editor->pending_path), "%s", value);
+            minibuffer_open(&editor->minibuffer, MINIBUFFER_REPLACE_BUFFER_CONFIRM,
+                            "Buffer modificado. Substituir? digite yes: ");
+        } else
+            buffers_open_file(&editor->buffers, value, editor->message,
+                              sizeof(editor->message));
+    } else if (mode == MINIBUFFER_DIRED) {
         Buffer *buffer = buffers_create(&editor->buffers, "*dired*", BUFFER_DIRECTORY);
         if (buffer)
             buffer_refresh_directory(buffer, value, editor->message,
@@ -645,6 +668,16 @@ static void submit_minibuffer(Editor *editor)
                      strerror(errno));
     } else if (mode == MINIBUFFER_DELETE_CONFIRM) {
         snprintf(editor->message, sizeof(editor->message), "Exclusão cancelada");
+    } else if (mode == MINIBUFFER_REPLACE_BUFFER_CONFIRM && strcmp(value, "yes") == 0) {
+        buffers_open_file_confirmed(&editor->buffers, editor->pending_path,
+                                    editor->message, sizeof(editor->message));
+    } else if (mode == MINIBUFFER_REPLACE_BUFFER_CONFIRM) {
+        snprintf(editor->message, sizeof(editor->message),
+                 "Substituição de buffer cancelada");
+    } else if (mode == MINIBUFFER_QUIT_CONFIRM && strcmp(value, "yes") == 0) {
+        editor->running = false;
+    } else if (mode == MINIBUFFER_QUIT_CONFIRM) {
+        snprintf(editor->message, sizeof(editor->message), "Saída cancelada");
     } else if (mode == MINIBUFFER_ISEARCH) {
         snprintf(editor->search_text, sizeof(editor->search_text), "%s", value);
     } else if (mode == MINIBUFFER_QUERY_FIND) {
@@ -721,7 +754,7 @@ static bool handle_minibuffer_event(Editor *editor, const SDL_Event *event)
 static void handle_event(Editor *editor, const SDL_Event *event)
 {
     if (event->type == SDL_EVENT_QUIT) {
-        editor->running = false;
+        request_quit(editor);
         return;
     }
     if (handle_minibuffer_event(editor, event))

@@ -13,6 +13,26 @@ static const char *base_name(const char *path)
     return slash && slash[1] ? slash + 1 : path;
 }
 
+static bool same_file(const char *left, const char *right)
+{
+    if (!left || !right)
+        return false;
+    if (strcmp(left, right) == 0)
+        return true;
+    struct stat left_info, right_info;
+    return stat(left, &left_info) == 0 && stat(right, &right_info) == 0 &&
+           left_info.st_dev == right_info.st_dev &&
+           left_info.st_ino == right_info.st_ino;
+}
+
+static size_t buffer_index_for_name(const BufferManager *manager, const char *name)
+{
+    for (size_t i = 0; i < manager->count; i++)
+        if (strcmp(manager->items[i].name, name) == 0)
+            return i;
+    return manager->count;
+}
+
 bool buffers_init(BufferManager *manager)
 {
     memset(manager, 0, sizeof(*manager));
@@ -56,8 +76,26 @@ Buffer *buffers_create(BufferManager *manager, const char *name, BufferType type
     return buffer;
 }
 
-Buffer *buffers_open_file(BufferManager *manager, const char *path, char *message,
-                          size_t message_size)
+bool buffers_file_would_replace_modified(const BufferManager *manager, const char *path)
+{
+    size_t index = buffer_index_for_name(manager, base_name(path));
+    if (index == manager->count)
+        return false;
+    const Buffer *buffer = &manager->items[index];
+    return buffer->document.dirty && !same_file(buffer->document.path, path);
+}
+
+size_t buffers_modified_count(const BufferManager *manager)
+{
+    size_t count = 0;
+    for (size_t i = 0; i < manager->count; i++)
+        if (manager->items[i].document.dirty)
+            count++;
+    return count;
+}
+
+static Buffer *open_file(BufferManager *manager, const char *path, char *message,
+                         size_t message_size, bool replace_modified)
 {
     struct stat info;
     if (stat(path, &info) == 0 && S_ISDIR(info.st_mode)) {
@@ -68,12 +106,37 @@ Buffer *buffers_open_file(BufferManager *manager, const char *path, char *messag
     }
     char name[MT_BUFFER_NAME_SIZE];
     snprintf(name, sizeof(name), "%s", base_name(path));
+    size_t existing = buffer_index_for_name(manager, name);
+    if (existing < manager->count) {
+        Buffer *buffer = &manager->items[existing];
+        manager->active = existing;
+        if (same_file(buffer->document.path, path)) {
+            snprintf(message, message_size, "Buffer já aberto: %s", path);
+            return buffer;
+        }
+        if (buffer->document.dirty && !replace_modified) {
+            snprintf(message, message_size, "Buffer modificado: %s", buffer->name);
+            return NULL;
+        }
+    }
     Buffer *buffer = buffers_create(manager, name, BUFFER_TEXT);
     if (!buffer)
         return NULL;
     if (!document_load(&buffer->document, path, message, message_size))
         return NULL;
     return buffer;
+}
+
+Buffer *buffers_open_file(BufferManager *manager, const char *path, char *message,
+                          size_t message_size)
+{
+    return open_file(manager, path, message, message_size, false);
+}
+
+Buffer *buffers_open_file_confirmed(BufferManager *manager, const char *path,
+                                    char *message, size_t message_size)
+{
+    return open_file(manager, path, message, message_size, true);
 }
 
 Buffer *buffers_open_text(BufferManager *manager, const char *name, BufferType type,
