@@ -20,7 +20,7 @@ typedef struct Editor {
     TTF_Font *font;
     BufferManager buffers;
     Keymap keymap;
-    Config config;
+    ConfigPaths config_paths;
     Settings settings;
     Minibuffer minibuffer;
     PackageManager packages;

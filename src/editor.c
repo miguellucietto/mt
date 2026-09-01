@@ -66,9 +66,13 @@ bool editor_init(Editor *editor, const char *path)
         return false;
     if (!buffers_init(&editor->buffers))
         return false;
-    config_init(&editor->config, editor->message, sizeof(editor->message));
+    if (!config_paths_discover(&editor->config_paths, editor->message,
+                               sizeof(editor->message)) ||
+        !config_paths_prepare(&editor->config_paths, editor->message,
+                              sizeof(editor->message)))
+        goto error;
     keymap_init_default(&editor->keymap);
-    keymap_load(&editor->keymap, editor->config.keymap_path, editor->message,
+    keymap_load(&editor->keymap, editor->config_paths.keymap_path, editor->message,
                 sizeof(editor->message));
     if (path)
         buffers_open_file(&editor->buffers, path, editor->message,
@@ -87,8 +91,9 @@ bool editor_init(Editor *editor, const char *path)
         goto error;
     editor->line_height += editor->settings.line_spacing;
     SDL_StartTextInput(editor->window);
-    packages_load_directory(&editor->packages, editor, editor->config.packages_path,
-                            editor->message, sizeof(editor->message));
+    packages_load_directory(&editor->packages, editor,
+                            editor->config_paths.packages_path, editor->message,
+                            sizeof(editor->message));
     return true;
 error:
     editor_destroy(editor);

@@ -221,17 +221,19 @@ an unbounded list.
 
 ### Configuration paths
 
-Current representation: three inline 4096-byte arrays.
+Current representation: five inline 4096-byte arrays in `ConfigPaths`, covering
+the base, application directory, keymap, settings, and package directory.
 
 Strengths: simple lifetime, no allocation failures during use, and sufficient
 space on the current Linux target.
 
-Limit: the constant is platform-specific and several modules duplicate path
-capacities.
+Limit: the constant is platform-specific, although path capacity now has one
+named owner.
 
-Decision: keep until configuration and platform abstractions are introduced. A3
-should centralize path construction and reject truncation; portability work can
-then select an owned dynamic path type if necessary.
+Decision: A3 separated side-effect-free path derivation from filesystem
+preparation, centralizing joins and rejecting truncation transactionally. Keep
+the bounded representation until portability work can select an owned dynamic
+path type using platform-specific evidence.
 
 During A2, the pending find-file replacement path moved into `FileState`, and
 the pending Dired operation path moved into `DiredState`. Both retain the

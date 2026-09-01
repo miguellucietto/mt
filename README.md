@@ -172,5 +172,5 @@ stabilization and opaque handles are tracked in `ARCHITECTURE.md`.
 - `package`: dynamic package loading with `dlopen`
 - `highlight`: lexical analysis independent from rendering
 - `renderer`: SDL presentation for buffers and the minibuffer
-- `config`: XDG configuration discovery and creation
+- `config`: pure XDG path derivation and explicit filesystem preparation
 - `settings`: typed editor preferences and centralized defaults

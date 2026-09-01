@@ -1,5 +1,6 @@
 #include "buffer.h"
 #include "command.h"
+#include "config.h"
 #include "dired_controller.h"
 #include "document.h"
 #include "editing.h"
@@ -111,6 +112,52 @@ static void test_settings_defaults(void)
     assert(settings.tab_width == 4 && settings.tab_insert_spaces);
     assert(settings.search_wrap && settings.search_case_sensitive);
     assert(settings.process_output_limit == 16 * 1024 * 1024);
+}
+
+/* Verifies pure path derivation and non-destructive filesystem preparation. */
+static void test_config_paths(void)
+{
+    char base[] = "/tmp/mt-config-test-XXXXXX";
+    assert(mkdtemp(base));
+    ConfigPaths paths = {0};
+    char message[512] = {0};
+    assert(config_paths_from_base(&paths, base, message, sizeof(message)));
+
+    char expected[MT_CONFIG_PATH_SIZE];
+    assert(snprintf(expected, sizeof(expected), "%s/mt", base) > 0);
+    assert(strcmp(paths.directory, expected) == 0);
+    assert(snprintf(expected, sizeof(expected), "%s/mt/settings.conf", base) > 0);
+    assert(strcmp(paths.settings_path, expected) == 0);
+    struct stat information;
+    assert(stat(paths.directory, &information) != 0);
+
+    assert(config_paths_prepare(&paths, message, sizeof(message)));
+    assert(stat(paths.directory, &information) == 0 && S_ISDIR(information.st_mode));
+    assert(stat(paths.packages_path, &information) == 0 &&
+           S_ISDIR(information.st_mode));
+    FILE *file = fopen(paths.keymap_path, "wb");
+    assert(file);
+    assert(fwrite("custom\n", 1, 7, file) == 7);
+    assert(fclose(file) == 0);
+    assert(config_paths_prepare(&paths, message, sizeof(message)));
+    file = fopen(paths.keymap_path, "rb");
+    assert(file);
+    char contents[16] = {0};
+    assert(fread(contents, 1, sizeof(contents) - 1, file) == 7);
+    assert(fclose(file) == 0);
+    assert(strcmp(contents, "custom\n") == 0);
+
+    ConfigPaths unchanged = paths;
+    char too_long[MT_CONFIG_PATH_SIZE + 1];
+    memset(too_long, 'x', sizeof(too_long) - 1);
+    too_long[sizeof(too_long) - 1] = '\0';
+    assert(!config_paths_from_base(&paths, too_long, message, sizeof(message)));
+    assert(memcmp(&paths, &unchanged, sizeof(paths)) == 0);
+
+    assert(unlink(paths.keymap_path) == 0);
+    assert(rmdir(paths.packages_path) == 0);
+    assert(rmdir(paths.directory) == 0);
+    assert(rmdir(base) == 0);
 }
 
 /* Verifies file command registration and protected quit confirmation flows. */
@@ -524,6 +571,7 @@ int main(void)
 {
     test_command_registry();
     test_settings_defaults();
+    test_config_paths();
     test_editing_controller();
     test_search_controller();
     test_file_controller();
