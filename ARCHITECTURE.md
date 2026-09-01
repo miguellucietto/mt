@@ -16,6 +16,8 @@ this plan describes the low-coupling foundation required to implement them.
 - Prefer incremental migrations over complete rewrites.
 - Do not add dependencies without documenting the need, cost, and alternatives.
 - Do not expose new internal structures through the public API.
+- Review affected entries in `DATA_STRUCTURES.md` before changing storage or
+  ownership, and replace a structure only when its documented trigger applies.
 - Review `README.md` in every delivery and update it whenever project state, usage,
   architecture, configuration, or limitations change.
 - Mark checklist items complete only after all acceptance criteria pass.
