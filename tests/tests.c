@@ -5,8 +5,12 @@
 #include "keymap.h"
 #include "text.h"
 #include <assert.h>
+#include <dirent.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 static void test_document(void)
 {
@@ -73,6 +77,78 @@ static void test_grouped_typing(void)
     assert(strcmp(document.text, "aç\nβ") == 0);
     assert(!document.dirty);
     document_destroy(&document);
+}
+
+static void test_atomic_save(void)
+{
+    char directory[] = "/tmp/mt-save-test-XXXXXX";
+    assert(mkdtemp(directory));
+    char path[512];
+    assert(snprintf(path, sizeof(path), "%s/document.txt", directory) > 0);
+    FILE *file = fopen(path, "wb");
+    assert(file);
+    assert(fwrite("original", 1, 8, file) == 8);
+    assert(fclose(file) == 0);
+    assert(chmod(path, 0640) == 0);
+    struct stat before;
+    assert(stat(path, &before) == 0);
+
+    Document document;
+    char message[512];
+    assert(document_init(&document));
+    assert(document_load(&document, path, message, sizeof(message)));
+    document.anchor = 0;
+    document.cursor = document.length;
+    assert(document_insert(&document, "conteúdo\nseguro"));
+    assert(document_save(&document, message, sizeof(message)));
+    assert(!document.dirty);
+
+    struct stat information;
+    assert(stat(path, &information) == 0);
+    assert((information.st_mode & 0777) == 0640);
+    assert(information.st_ino != before.st_ino);
+    file = fopen(path, "rb");
+    assert(file);
+    char contents[64] = {0};
+    assert(fread(contents, 1, sizeof(contents) - 1, file) ==
+           strlen("conteúdo\nseguro"));
+    assert(fclose(file) == 0);
+    assert(strcmp(contents, "conteúdo\nseguro") == 0);
+
+    DIR *listing = opendir(directory);
+    assert(listing);
+    size_t entries = 0;
+    struct dirent *entry;
+    while ((entry = readdir(listing)))
+        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0)
+            entries++;
+    assert(closedir(listing) == 0);
+    assert(entries == 1);
+
+    document_destroy(&document);
+
+    char link_path[512];
+    assert(snprintf(link_path, sizeof(link_path), "%s/link.txt", directory) > 0);
+    assert(symlink("document.txt", link_path) == 0);
+    assert(document_init(&document));
+    assert(document_load(&document, link_path, message, sizeof(message)));
+    document.anchor = 0;
+    document.cursor = document.length;
+    assert(document_insert(&document, "via link"));
+    assert(document_save(&document, message, sizeof(message)));
+    assert(lstat(link_path, &information) == 0);
+    assert(S_ISLNK(information.st_mode));
+    file = fopen(path, "rb");
+    assert(file);
+    memset(contents, 0, sizeof(contents));
+    assert(fread(contents, 1, sizeof(contents) - 1, file) == strlen("via link"));
+    assert(fclose(file) == 0);
+    assert(strcmp(contents, "via link") == 0);
+    document_destroy(&document);
+
+    assert(unlink(link_path) == 0);
+    assert(unlink(path) == 0);
+    assert(rmdir(directory) == 0);
 }
 
 static void test_keymap(void)
@@ -142,6 +218,7 @@ int main(void)
     test_document();
     test_undo_redo();
     test_grouped_typing();
+    test_atomic_save();
     test_keymap();
     test_buffers();
     test_highlighting();

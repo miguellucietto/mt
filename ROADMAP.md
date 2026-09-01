@@ -19,8 +19,8 @@ nomeados, configuração transparente e extensões desacopladas do núcleo.
 
 - [ ] Avisar sobre buffers modificados antes de sair.
 - [ ] Avisar antes de fechar ou substituir um buffer modificado.
-- [ ] Implementar salvamento atômico usando arquivo temporário e `rename`.
-- [ ] Preservar permissões do arquivo durante o salvamento.
+- [x] Implementar salvamento atômico usando arquivo temporário e `rename`.
+- [x] Preservar permissões do arquivo durante o salvamento.
 - [ ] Detectar alterações externas no arquivo aberto.
 - [ ] Exibir erros completos de abertura, leitura e escrita no buffer `*messages*`.
 - [ ] Impedir que o Dired apague diretórios não vazios sem confirmação explícita.

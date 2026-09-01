@@ -1,8 +1,12 @@
+#define _XOPEN_SOURCE 700
 #include "document.h"
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #define INITIAL_CAPACITY 4096
 
 struct DocumentEdit {
@@ -300,16 +304,61 @@ bool document_save(Document *d, char *message, size_t size)
         snprintf(message, size, "Abra com: ./mt arquivo.txt");
         return false;
     }
-    FILE *file = fopen(d->path, "wb");
-    if (!file) {
-        snprintf(message, size, "Erro ao salvar: %s", strerror(errno));
+
+    char *resolved = realpath(d->path, NULL);
+    const char *target = resolved ? resolved : d->path;
+    size_t template_size = strlen(target) + sizeof(".mt-save-XXXXXX");
+    char *temporary = malloc(template_size);
+    if (!temporary) {
+        free(resolved);
+        snprintf(message, size, "Erro ao salvar: memória insuficiente");
         return false;
     }
-    bool ok = fwrite(d->text, 1, d->length, file) == d->length;
-    if (fclose(file) != 0)
-        ok = false;
-    if (ok)
-        document_mark_clean(d);
-    snprintf(message, size, ok ? "Salvo: %s" : "Erro ao salvar: %s", d->path);
-    return ok;
+    snprintf(temporary, template_size, "%s.mt-save-XXXXXX", target);
+
+    struct stat information;
+    bool existed = stat(target, &information) == 0;
+    int descriptor = mkstemp(temporary);
+    if (descriptor < 0)
+        goto error;
+    size_t written = 0;
+    while (written < d->length) {
+        ssize_t result = write(descriptor, d->text + written, d->length - written);
+        if (result > 0)
+            written += (size_t)result;
+        else if (result < 0 && errno == EINTR)
+            continue;
+        else
+            goto error_open;
+    }
+    if (existed && fchmod(descriptor, information.st_mode & 07777) != 0)
+        goto error_open;
+    if (fsync(descriptor) != 0)
+        goto error_open;
+    if (close(descriptor) != 0) {
+        descriptor = -1;
+        goto error_open;
+    }
+    descriptor = -1;
+    if (rename(temporary, target) != 0)
+        goto error_open;
+
+    document_mark_clean(d);
+    snprintf(message, size, "Salvo: %s", d->path);
+    free(temporary);
+    free(resolved);
+    return true;
+
+error_open: {
+    int error = errno;
+    if (descriptor >= 0)
+        close(descriptor);
+    unlink(temporary);
+    errno = error;
+}
+error:
+    snprintf(message, size, "Erro ao salvar %s: %s", d->path, strerror(errno));
+    free(temporary);
+    free(resolved);
+    return false;
 }
